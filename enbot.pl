@@ -43,10 +43,14 @@ my $CONFIG_IRCNAME	= $CONFIG->get_entry_setting('Bot','DESC','Perl-Based IRC Bot
 my $CONFIG_SERVER	= $CONFIG->get_entry_setting('Server','ADDRESS','irc.dal.net');
 my $CONFIG_PORT		= $CONFIG->get_entry_setting('Server','PORT','6667');
 
-my @CONFIG_CHANNEL;
-	$CONFIG_CHANNEL[0] = '#en';
-	$CONFIG_CHANNEL[1] = '#enBot';
-	$CONFIG_CHANNEL[2] = '#enGames';
+my @CONFIG_CHANNEL	= split / /,$CONFIG->get_entry_setting('Server','CHANNELS','');
+
+## Fix to make the entries useable. Since '#' is interpreted as a comment, 
+## prefixing channel names with it in the configuration file causes problems.
+## We can fix this, by parsing the entries, and prepending them with a '#'.
+for ( my $iCounter = 0; $iCounter < @CONFIG_CHANNEL; $iCounter++ ) {
+	$CONFIG_CHANNEL[$iCounter] = "#".$CONFIG_CHANNEL[$iCounter];
+}
 
 #############################
 # Define Available Commands #
@@ -61,16 +65,20 @@ my @commands;
 	$commands[5] = '(CONFIG) ';
 	$commands[6] = '(M) (SEPPUKU) ';
 
-########################
-# Module Configuration #
-########################
+#######################
+# Configuration Block #
+#######################
 
 my %module = ();
 	
+	$module{'Active'}{'Logging'} = 1;
+		$module{'Logging'}{'Channel'}		= '#'.$CONFIG->get_entry_setting('Modules','Log_Channel','');
+		
 	$module{'Active'}{'Access Control'} = 1;
 		$module{'Access Control'}{'File'}	= 'settings-acl.ini';
 		$module{'Access Control'}{'Data'}	= new Config::Abstract::Ini("$module{'Access Control'}{'File'}");
-	
+		$module{'Access Control'}{'Default'}	= $CONFIG->get_entry_setting('Modules','Access_Default',-1);
+		
 	$module{'Active'}{'Help'} = 1;
 		$module{'Help'}{'Called'}		= 0;
 		$module{'Help'}{'Arguments'}		= '';
@@ -78,16 +86,15 @@ my %module = ();
 	$module{'Active'}{'User Settings'} = 1;
 		$module{'User Settings'}{'File'}	= 'settings-user.ini';
 		$module{'User Settings'}{'Data'} = new Config::Abstract::Ini($module{'User Settings'}{'File'});
-	
+		
 	$module{'Active'}{'Profile'} = 1;
 		$module{'Profile'}{'Called'}		= 0;
-		$module{'Profile'}{'Read'}		= '';
-		$module{'Profile'}{'Write'}		= '';
+		$module{'Profile'}{'Arguments'}		= '';
 		
 	$module{'Active'}{'Contention'} = 1;
 		$module{'Contention'}{'Called'}		= 0;
 		$module{'Contention'}{'Arguments'}	= '';
-		$module{'Contention'}{'Channel'}	= '#enGames';
+		$module{'Contention'}{'Channel'}	= "#".$CONFIG->get_entry_setting('Modules','Contention_Channel','');
 		$module{'Contention'}{'Last Action'}	= '';
 		
 		
@@ -182,7 +189,7 @@ sub on_public {
 	## log to console, for maximum flexibility. Allows total log manipulation by 
 	## the user, should they so desire. I tend to run the bot with...
 	## 'run ./enbot.pl >> /home/username/log/enbot &'
-	if ( $channel eq $CONFIG_CHANNEL[0] ) {
+	if ( $channel eq $module{'Logging'}{'Channel'} ) {
 		print "[$timestamp] <$nick> $msg\n"; # Log to screen
 	}
 	
@@ -192,7 +199,7 @@ sub on_public {
 	## Parses the access control list for nick, and if it finds a match, assigns 
 	## a control level, which is used to detemine which commands can be used.
 	
-	my $control = -1;
+	my $control = $module{'Access Control'}{'Default'};
 	
 	foreach my $acl ('Normal','Voice','HalfOp','Oper','SuperOp','Founder','Owner','Author','Banned') {
 		if ( $module{'Access Control'}{'Data'}->get_entry_setting("$acl",'List','') =~ /$nick/i ) {
@@ -212,6 +219,10 @@ sub on_public {
 	if ( $msg =~ /^\./ ) { $echoLocation = $nick; }
 	
 	if ( $msg =~ /^[!|\.](.+)/i ) { $command = $1; }
+
+###################
+## Trigger Block ##
+###################
 
 	######################
 	# Bot Owner Commands #
@@ -330,19 +341,9 @@ sub on_public {
 	if ( $control >= 0 ) {
 		
 		if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $command =~ /^PROFILE (.+)/i ) ) {
-			
-			if ( $1 =~ /^VIEW (.+)/i ) {
-				$module{'Profile'}{'Called'} = 1;
-				$module{'Profile'}{'Read'} = $1;
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^SET (.+)/i ) {
-				$module{'Profile'}{'Called'} = 2;
-				$module{'Profile'}{'Write'} = $1;
-				goto _DONE;
-			}
-			
+			$module{'Profile'}{'Arguments'} = $1;
+			$module{'Profile'}{'Called'} = 1;
+			goto _DONE;
 		}
 		
 		if ( ( $module{'Active'}{'Contention'} eq 1 ) && ( $channel eq $module{'Contention'}{'Channel'} ) && ( $command =~ /^CONTENTION (.+)/i ) ) {
@@ -784,39 +785,92 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 
 #####################################
 ## Profile Module by Chris Olstrom ##
-if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0 ) ) {
+if ( ( $module{'Active'}{'Profile'} == 1 ) && ( $module{'Profile'}{'Called'} > 0 ) ) {
+	if ( $module{'Profile'}{'Called'} == 1 ) {
+		## Displays the profile for the user specified. Has a known bug that causes it 
+		## to spew errors to console. Doesn't crash, just errors. This happens if 
+		## someone attempts to view a nonexistant profile element.
+		if ( $module{'Profile'}{'Arguments'} =~ /^VIEW (.+)/i ) {
+			
+			if ( $1 =~ /^QUOTE (.+)/i ) {
+				my $quote = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_Quote','Quote not set');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Quote for $1: $quote " );
+			} elsif ( $1 =~ /^DESCRIPTION (.+)/i ) {
+				my $description = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_Description','Description not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] $1 is best described as: $description " );
+			} elsif ( $1 =~ /^WEBSITE (.+)/i ) {
+				my $website = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_Website','Website not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] You can find $1\'s website here: $website " );
+			} elsif ( $1 =~ /^EMAIL (.+)/i ) {
+				my $email = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_Email','Email not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] You can email $1 at $email " );
+			} elsif ( $1 =~ /^MSN (.+)/i ) {
+				my $im_msn = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_MSN','MSN not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] MSN Account for $1: $im_msn " );
+			} elsif ( $1 =~ /^AIM (.+)/i ) {
+				my $im_aim = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_AIM','AIM not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] AIM Account for $1: $im_aim " );
+			} elsif ( $1 =~ /^ICQ (.+)/i ) {
+				my $im_icq = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_ICQ','ICQ not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] ICQ Account for $1: $im_icq " );
+			} if ( $1 =~ /^MAIN (.+)/i ) {
+				my $main_nick = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_Main','');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] $1 has declared their primary nick as: $main_nick " );
+			}
+		}
+		
+		## Sets the profile for the user calling it to whatever they specify.
+		if ( $module{'Profile'}{'Arguments'} =~ /^SET (.+)/i ) {
+			if ( $1 =~ /^QUOTE (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_Quote',"$1");
+				my $quote = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_Quote','Quote not set');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Quote for $nick set to: $quote " );
+			} elsif ( $1 =~ /^DESCRIPTION (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_Description',"$1");
+				my $description = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_Description','Description not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Description for $nick set to: $description " );
+			} elsif ( $1 =~ /^WEBSITE (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_Website',"$1");
+				my $website = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_Website','Website not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Website for $nick set to: $website " );
+			} elsif ( $1 =~ /^EMAIL (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_Email',"$1");
+				my $email = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_Email','Email not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Email for $nick set to: $email " );
+			} elsif ( $1 =~ /^MSN (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_MSN',"$1");
+				my $im_msn = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_MSN','MSN not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] MSN Account for $nick set to: $im_msn " );
+			} elsif ( $1 =~ /^AIM (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_AIM',"$1");
+				my $im_aim = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_AIM','AIM not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] AIM Account for $nick set to: $im_aim " );
+			} elsif ( $1 =~ /^ICQ (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_ICQ',"$1");
+				my $im_icq = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_ICQ','ICQ not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] ICQ Account for $nick set to: $im_icq " );
+			} if ( $1 =~ /^MAIN (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_Main',"$1");
+				my $main_nick = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_Main','');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] $nick declares their primary nick as: $main_nick " );
+			}
+			$module{'Profile'}{'Save'} = 1;
+		}
+	}
 
-	## Displays the profile for the user specified. Has a known bug that causes it 
-	## to spew errors to console. Doesn't crash, just errors. This happens if 
-	## someone attempts to view a nonexistant profile.
-	if ( $module{'Profile'}{'Called'} eq 1 ) {
-		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$module{'Profile'}{'Read'}","PROFILE","Profile Not Set");
-		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $module{'Profile'}{'Read'}: $tmpBuffer" );
-	}
-	
-	## Sets the profile for the user calling it to whatever they specify.
-	if ( $module{'Profile'}{'Called'} eq 2 ) {
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'PROFILE',"$module{'Profile'}{'Write'}");
-		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
-		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
-		$module{'Profile'}{'Save'} = 1;
-	}
-	
 	## Saves user settings to a file.
 	if ( $module{'Profile'}{'Save'} eq 1 ) {
 		open (users, ">$module{'User Settings'}{'File'}") || die ("Could not open file. $!");
 			print users "$module{'User Settings'}{'Data'}";
 		close (users);
 		if ( $msg =~ /^[!|\.]/i ) {
-			$kernel->post( bot => privmsg => '#enBot', " [*] User settings saved to $module{'User Settings'}{'File'}. " );
+			$kernel->post( bot => privmsg => "$CONFIG_NICK", " [*] User settings saved to $module{'User Settings'}{'File'}. " );
 		}
 		$module{'Profile'}{'Save'} = 0;
 	}
 	
 	## Cleanup
-	$module{'Profile'}{'Read'}	= '';
-	$module{'Profile'}{'Write'}	= '';
-
+	$module{'Profile'}{'Arguments'}	= '';
 	$module{'Profile'}{'Called'}	= 0;
 }
 
@@ -826,9 +880,8 @@ if ( ( $module{'Active'}{'Help'} == 1 ) && ( $module{'Help'}{'Called'} > 0 ) ) {
 	if ( $module{'Help'}{'Called'} == 1 ) {
 
 		if ( $module{'Help'}{'Arguments'} =~ /^PROFILE$/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0): SET, VIEW" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] SET <text>: Sets your profile to <text>" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] VIEW <user>: Reads the profile of <user>" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0)" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] The help entry for profiles has become too large to display here. To view the complete help file for it, browse to\cC12 http://colstrom.whatthefork.org/software/perl/enbot/modules/readme-profile.txt\x0F " );
 		}
 		
 		if ( $module{'Help'}{'Arguments'} =~ /^CONTENTION$/i ) {
