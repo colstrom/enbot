@@ -58,7 +58,7 @@ sub LogMessage {
 }
 
 sub Echo {
-	my ($kernel,$moduleSettings,$location,$message) = @_;
+	my ($kernel,$location,$message) = @_;
 	$kernel->post( bot => 'privmsg' => $location, $message );
 }
 
