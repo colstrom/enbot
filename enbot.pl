@@ -95,27 +95,31 @@ my $USER_SETTINGS;
 # Create and Configure the Bot #
 ################################
 
-# Create the component that will represent an IRC network.
-POE::Component::IRC->new("magnet");
+# Component creation. This represents an IRC network, by adding more lines 
+# like this, you can make the bot join multiple networks. It'd be a good idea 
+# to name them better, if you do that.
+POE::Component::IRC->new("bot");
 
-# Create the bot session.  The new() call specifies the events the bot
-# knows about and the functions that will handle those events.
+# Session configuration. What events does the bot do anything with?
 POE::Session->new(
 	_start => \&bot_start,
 	irc_001    => \&on_connect,
 	irc_public => \&on_public,
 	irc_msg    => \&on_public,);
+# Note the halfassed workaround above, to get it to handle private messages, 
+# and respond to all the same commands, with almost no extra code. Simple, 
+# and awesome. ^_^ ( Yes, I know this isn't amazing, but I'm proud if it :p )
 
-# The bot session has started.  Register this bot with the "magnet"
+# The bot session has started.  Register this bot with the "bot"
 # IRC component.  Select a nickname.  Connect to a server.
 sub bot_start {
 	my $kernel  = $_[KERNEL];
 	my $heap    = $_[HEAP];
 	my $session = $_[SESSION];
 	
-	$kernel->post( magnet => register => "all" );
+	$kernel->post( bot => register => "all" );
 	
-	$kernel->post( magnet => connect => {
+	$kernel->post( bot => connect => {
 		Nick     => $CONFIG_NICK,
 		Username => $CONFIG_USERNAME,
 		Ircname  => $CONFIG_IRCNAME,
@@ -125,18 +129,20 @@ sub bot_start {
 	);
 }
 
-# The bot has successfully connected to a server.  Join a channel.
+# So, we've connected to a server, what now? Sit around and take up a user slot?
+# Here's where we make it do something useful, like identify with nickserv, and 
+# join a few channels, so it can be an attention-whore.
 sub on_connect {
 	open (passwd, 'config.passwd') || die ( "Could not open file. $!"); my $passwd = <passwd>; close (passwd);
-	$_[KERNEL]->post( magnet => privmsg => 'NickServ', "IDENTIFY $passwd" );
+	$_[KERNEL]->post( bot => privmsg => 'NickServ', "IDENTIFY $passwd" );
 	for (my $iCounter = 0; $iCounter < @CONFIG_CHANNEL; $iCounter++) {
-		$_[KERNEL]->post( magnet => join => $CONFIG_CHANNEL[$iCounter] );
+		$_[KERNEL]->post( bot => join => $CONFIG_CHANNEL[$iCounter] );
 	}
 }
 
 
-# The bot has received a public message.  Parse it for commands, and
-# respond to interesting things.
+# Someone said something, and the bot saw it.
+# How does it react? That's all handled here.
 sub on_public {
 
 	#####################
@@ -146,15 +152,18 @@ sub on_public {
 	## Determine nick/hostmask, channel, and timestamp
 	
 	my ( $kernel, $who, $where, $msg ) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
-	my $nick = ( split /!/, $who )[0];
-	my $hostmask = ( split /!/, $who )[1];
+	
+	# Thanks to xmath, from #perlhelp on EFnet, for this more efficient splitting.
+	my ($nick, $hostmask) = split /!/, $who, 2;
+	
 	my $channel = $where->[0];
 	
 	#######################
 	# Configure TimeStamp #
 	#######################
 	## Get time from local settings, format
-
+	
+	# Thanks to cardioid, from #perlhelp on EFnet, for this more efficient timestamp generation.
 	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);
 
 	#######################
@@ -167,16 +176,20 @@ sub on_public {
 	###########
 	# Logging #
 	###########
-	## Log to screen, for maximum flexibility.
-	if ( $channel eq '#en' ) {
+	## WARNING!! The following configuration ONLY logs the main channel.
+	## Get time from local settings, format it to mimic mIRC's format, and print 
+	## log to console, for maximum flexibility. Allows total log manipulation by 
+	## the user, should they so desire. I tend to run the bot with...
+	## 'run ./enbot.pl >> /home/username/log/enbot &'
+	if ( $channel eq $CONFIG_CHANNEL[0] ) {
 		print "[$timestamp] <$nick> $msg\n"; # Log to screen
 	}
 	
 	################
 	# Access Check #
 	################
-	## Determine the user's control level
-	## by parsing the ACLs for that nick
+	## Parses the access control list for nick, and if it finds a match, assigns 
+	## a control level, which is used to detemine which commands can be used.
 	
 	my $control = -1;
 	if ( $ACL_NORMAL =~ /$nick/ ) { $control = 0; }
@@ -192,7 +205,8 @@ sub on_public {
 	######################
 	# User ID Generation #
 	######################
-	## Generate User ID from nick.
+	## Generates user IDs by taking the ASCII value of each character in the nick, 
+	## and adding them together.
 
 	my $uid;
 	if (1) {
@@ -205,7 +219,9 @@ sub on_public {
 	###################
 	# Response Method #
 	###################
-	## Should replies be public, or private?
+	## Determines how to respond to a message. If prefixed with '!', it responds 
+	## in the channel it was called from. If prefixed with '.', it responds with 
+	## a private message.
 	
 	if ( ( $msg =~ /^!/ ) && ( $control >= 1 ) ) { $echoLocation = $channel; }
 	if ( $msg =~ /^\./ ) { $echoLocation = $nick; }
@@ -217,13 +233,16 @@ sub on_public {
 	######################
 	
 	if ( $control >= 666 ) {
+		## Useless function, exists more as a template than anything. Can be used to 
+		## prove ownership of the bot. $ePenis++
 		if ( $msg =~ /^[!|\.] M/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " At your service, MASTER" );
+			$kernel->post( bot => privmsg => $echoLocation, " At your service, MASTER" );
 			goto _DONE;
 		}
 		
-		if ( $msg =~ /^[!|\.]GetTheFuckOutOfHere/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " Ack! I am slain ... (--> $nick <--)" );
+		## Bot kills itself by eating a frisbee. Well, something like that.
+		if ( $msg =~ /^[!|\.]seppuku/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, " Ack! I am slain ... (--> $nick <--)" );
 			goto _TERM;
 		}
 		
@@ -236,16 +255,17 @@ sub on_public {
 	######################
 	
 	if ( $control >= 4 ) {
+		## Alters the maximum number of entries the board will store.
 		if ( $msg =~ /^[!|\.]config BOARD_LIMIT (.+)/i ) {
 			$CONFIG_BOARD_LIMIT = $1; 
-			$kernel->post( magnet => privmsg => $echoLocation, " [*] CONFIG_BOARD_LIMIT set to $CONFIG_BOARD_LIMIT. " );
+			$kernel->post( bot => privmsg => $echoLocation, " [*] CONFIG_BOARD_LIMIT set to $CONFIG_BOARD_LIMIT. " );
 			goto _DONE;
 		}
 		
-		
+		## Resets the 'next message' marker to whatever position is specified.
 		if ( $msg =~ /^[!|\.]config BOARD_OFFSET (.+)/i ) {
 			$messageOffset = $1;
-			$kernel->post( magnet => privmsg => $echoLocation, " [*] Message Offset to $messageOffset / $CONFIG_BOARD_LIMIT" );
+			$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $messageOffset / $CONFIG_BOARD_LIMIT" );
 			goto _DONE;
 		}
 	}
@@ -259,6 +279,7 @@ sub on_public {
 	if ( $control >= 3 ) {
 		if ( $msg =~ /^[!|\.]control (.+)/i ) {
 			
+			## Loads the access control lists from a file. Yes, I realize this is ugly.
 			if ( $1 =~ /^ACL_RELOAD$/i ) {
 				open (acl, "acl.founder") || die ( "Could not open file. $!"); $ACL_FOUNDER = <acl>; close (acl);
 				open (acl, "acl.sop") || die ( "Could not open file. $!"); $ACL_SOP = <acl>; close (acl);
@@ -267,64 +288,70 @@ sub on_public {
 				open (acl, "acl.voice") || die ( "Could not open file. $!"); $ACL_VOICE = <acl>; close (acl);
 				open (acl, "acl.normal") || die ( "Could not open file. $!"); $ACL_NORMAL = <acl>; close (acl);
 				open (acl, "acl.banned") || die ( "Could not open file. $!"); $ACL_BANNED = <acl>; close (acl);
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Access Control Lists reloaded. " );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Access Control Lists reloaded. " );
 				goto _DONE
 			}
 			
+			## This one saves the contents of the whiteboard to a file. 
+			## 'script.noemptylines' is a simple shellscript to strip blank lines, as a 
+			## halfassed workaround for the fact that it sometimes inserts them if you omit 
+			## the 'print board ("\n"), and sometimes doesn't. This way, it appends a 
+			## newline, regardless, and just strips out any excess lines created by this.
 			if ( $1 =~ /^BOARD_SAVE$/i ) {
 				open (board, ">$CONFIG_BOARD_FILE") || die ("Could not open file. $!");
 					print board join("\n",@messageBody);
 					print board ("\n");
 				close (board);
 				system(". ./script.noemptylines ");
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Board saved to $CONFIG_BOARD_FILE. " );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Board saved to $CONFIG_BOARD_FILE. " );
 			}
 			
+			## This one populates the whiteboard from a file, and sets the 'next message' 
+			## marker to however many entries there are, plus one.
 			if ( $1 =~ /^BOARD_LOAD$/i ) {
 				open (board, "$CONFIG_BOARD_FILE") || die ("Could not open file. $!"); 
 					@messageBody = <board>;
 				close (board);
 				$messageOffset = (@messageBody - 1);
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Board loaded from $CONFIG_BOARD_FILE. " );
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Message Offset to $messageOffset / $CONFIG_BOARD_LIMIT" );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Board loaded from $CONFIG_BOARD_FILE. " );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $messageOffset / $CONFIG_BOARD_LIMIT" );
 				goto _DONE;
 			}
 			
+			## WARNING!! This will erase any profiles that have been added, and not saved.
+			## Loads settings for users from a file. Currently, this is only used for 
+			## profiles, but more uses are planned.
 			if ( $1 =~ /^USERS_LOAD$/i ) {
 				$USER_SETTINGS = new Config::Abstract::Ini($CONFIG_USER_FILE);
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] User settings loaded from $CONFIG_USER_FILE. " );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] User settings loaded from $CONFIG_USER_FILE. " );
 				goto _DONE;
 			}
 			
+			## Saves user settings to a file.
 			if ( $1 =~ /^USERS_SAVE$/i ) {
 				open (users, ">$CONFIG_USER_FILE") || die ("Could not open file. $!");
 					print users "$USER_SETTINGS";
 				close (users);
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] User settings saved to $CONFIG_USER_FILE. " );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] User settings saved to $CONFIG_USER_FILE. " );
 				goto _DONE;
 			}
 			
+			## Erases a message from the whiteboard, and replaces it with a message 
+			## indicating who erased it.
 			if ( $1 =~ /^BOARD_MESSAGE_ERASE (.+)/i ) {
 				$messageBody[$1] = " [X] Erased by $nick";
-				$kernel->post( magnet => privmsg => $echoLocation, "Message $1 erased by $nick" );
+				$kernel->post( bot => privmsg => $echoLocation, "Message $1 erased by $nick" );
 				goto _DONE;
 			}
 			
+			## Calls an external shellscript to generate stats. The reason for this, is to 
+			## allow modification of this script, without reloading the bot. It also 
+			## allows flexibility, and support of ANY stat generation software.
 			if ( $1 =~ /^STATS_REGEN$/i ) {
 				system(". ./script.stats > /dev/null");
-				$kernel->post( magnet => privmsg => $CONFIG_CHANNEL[0], " [*] Stats Regenerated, check http://siliconviper.whatthefork.org/enbot/ircstats/" );
+				$kernel->post( bot => privmsg => $CONFIG_CHANNEL[0], " [*] Stats Regenerated, check http://siliconviper.whatthefork.org/enbot/ircstats/" );
 				goto _DONE;
 			}
-		}
-		
-		if ( $msg =~ /^[!|\.]O (.+)/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " Op Management Support is DISABLED, contact your vendor for more information. " );
-			goto _DONE;
-		}
-		
-		if ( $msg =~ /^[!|\.]B (.+)/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " Banning Support is DISABLED, contact your vendor for more information. " );
-			goto _DONE;
 		}
 	}
 	
@@ -335,26 +362,19 @@ sub on_public {
 	#####################
 	
 	if ( $control >= 2 ) {
-		if ( $msg =~ /^[!|\.]H (.+)/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " HalfOp Management is DISABLED, contact your vendor for more information. " );
-			goto _DONE;
-		}
-		
-		if ( $msg =~ /^[!|\.]K (.+)/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " Kicking Support is DISABLED, contact your vendor for more information. " );
-			goto _DONE;
-		}
-		
+		## Displays the access control lists. I really should modifiy this to be more 
+		## flexible. As it is, it spews the entire list. You should be able to call 
+		## a single section, if you want.
 		if ( $msg =~ /^[!|\.]SHOW ACL$/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Author: $ACL_AUTHOR " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Owner: $ACL_OWNER " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Founder: $ACL_FOUNDER " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] SuperOpers: $ACL_SOP " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Opers: $ACL_AOP " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] HalfOpers: $ACL_HOP " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Voiced Users: $ACL_VOICE " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Normal Users: $ACL_NORMAL " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [+] Banned Users: $ACL_BANNED " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Author: $ACL_AUTHOR " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Owner: $ACL_OWNER " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Founder: $ACL_FOUNDER " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] SuperOpers: $ACL_SOP " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Opers: $ACL_AOP " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] HalfOpers: $ACL_HOP " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Voiced Users: $ACL_VOICE " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Normal Users: $ACL_NORMAL " );
+			$kernel->post( bot => privmsg => $echoLocation, " [+] Banned Users: $ACL_BANNED " );
 			goto _DONE;
 		}
 	}
@@ -365,14 +385,11 @@ sub on_public {
 	###################
 	
 	if ( $control >= 1 ) {
+		## Encrypts / Decrypts text, using one of the most useless ciphers in 
+		## existence. Popular on newsgroups, for some obscure reason.
 		if ( my ($rot13) = $msg =~ /^[!|\.]rot13 (.+)/i ) {
 			$rot13 =~ tr[a-zA-Z][n-za-mN-ZA-M];
-			$kernel->post( magnet => privmsg => $echoLocation, $rot13 );
-			goto _DONE;
-		}
-		
-		if ( $msg =~ /^[!|\.]V (.+)/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " Voice Management is DISABLED, contact your vendor for more information. " );
+			$kernel->post( bot => privmsg => $echoLocation, $rot13 );
 			goto _DONE;
 		}
 	}
@@ -386,27 +403,39 @@ sub on_public {
 	if ( $control >= 0 ) {
 		
 		if ( $msg =~ /^[!|\.]READ (.+)/i ) {
+			## WARNING!! This subroutine has been known to lag the bot, if used in 
+			## conjunction with a large whiteboard. It displays every message on the 
+			## board. For anti-flooding reasons, this ONLY sends via private message, 
+			## even if called with a public trigger.
 			if ( $1 =~ /^ALL$/i ) {
 				for (my $iCounter = 0; $iCounter < @messageBody; $iCounter++) {
-					$kernel->post( magnet => privmsg => $nick, "Reading Message $iCounter: $messageBody[$iCounter]" );
+					$kernel->post( bot => privmsg => $nick, "Reading Message $iCounter: $messageBody[$iCounter]" );
 				}
 				goto _DONE;
 			}
+			
+			## Displays the message matching the number specified.
 			if ( $1 =~ /^#(.+)/i ) {
-				$kernel->post( magnet => privmsg => $echoLocation, "Reading Message $1: $messageBody[$1]" );
+				$kernel->post( bot => privmsg => $echoLocation, "Reading Message $1: $messageBody[$1]" );
 				goto _DONE;
 			}
 		}
 		
+		## Searched the whiteboard for any messages matching a simple /query/ regex.
+		## There is a known bug here, that may crash the bot, if the query ends with 
+		## a '\'. This causes the regex to be read as /query\/, which escapes the 
+		## regex, and causes the bot to die.
 		if ( $msg =~ /^[!|\.]SEARCH (.+)/i ) {
 			for (my $iCounter = 0; $iCounter < @messageBody; $iCounter++) {
 				if ($messageBody[$iCounter] =~ /$1/) {
-					$kernel->post( magnet => privmsg => $echoLocation, "Reading Message $iCounter: $messageBody[$iCounter]" );
+					$kernel->post( bot => privmsg => $echoLocation, "Reading Message $iCounter: $messageBody[$iCounter]" );
 				}
 			}
 			goto _DONE;
 		}
 		
+		## Writes a message on the whiteboard, in the position indicated by the 
+		## 'next message' marker ($messageOffset).
 		if ( $msg =~ /^[!|\.]SCRIBBLE (.+)/i ) {
 			if ( ( ( @messageBody > $CONFIG_BOARD_LIMIT ) || ( $messageOffset > $CONFIG_BOARD_LIMIT ) ) && ( $restrictLooping = 0 ) ) {
 				$messageOffset = 0; $restrictLooping = 1;
@@ -414,21 +443,26 @@ sub on_public {
 			if ( $messageOffset eq ( $CONFIG_BOARD_LIMIT - 1 ) ) { $restrictLooping = 0; }
 			
 			$messageBody[$messageOffset] = "$1  - $nick";
-			$kernel->post( magnet => privmsg => $echoLocation, "Message \#$messageOffset Saved: $messageBody[$messageOffset]" );
+			$kernel->post( bot => privmsg => $echoLocation, "Message \#$messageOffset Saved: $messageBody[$messageOffset]" );
 			$messageOffset++;
 			goto _DONE;
 		}
 		
 		if ( $msg =~ /^[!|\.]PROFILE (.+)/i ) {
+			## Sets the profile for the user calling it to whatever they specify.
 			if ( $1 =~ /^SET (.+)/i ) {
 				$USER_SETTINGS->set_entry_setting("$nick",'PROFILE',"$1");
 				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
 				goto _DONE;
 			}
+			
+			## Displays the profile for the user specified. Has a known bug that causes it 
+			## to spew errors to console. Doesn't crash, just errors. This happens if 
+			## someone attempts to view a nonexistant profile.
 			if ( $1 =~ /^VIEW (.+)/i ) {
 				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$1","PROFILE","Profile Not Set");
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Profile for $1: $tmpBuffer" );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $1: $tmpBuffer" );
 				goto _DONE;
 			}
 		}
@@ -442,58 +476,66 @@ sub on_public {
 	#########################
 	
 	if ( $control >= -1 ) {
+		## Generic, no topic.
 		if ( $msg =~ /^[!\.]HELP$/i ) {
-			$kernel->post( magnet => privmsg => $echoLocation, " [?] Syntax is HELP <TOPIC> " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [?] Topics include WHITEBOARD, PROFILE, CONTROL, and CONFIG." );
-			$kernel->post( magnet => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
-			$kernel->post( magnet => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
-			$kernel->post( magnet => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] Syntax is HELP <TOPIC> " );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] Topics include WHITEBOARD, PROFILE, CONTROL, and CONFIG." );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
 			goto _DONE;
 		}
 		
+		## Specific, with topic.
 		if ( $msg =~ /^[!\.]HELP (.+)/i ) {
+			## Topic: Whiteboard
 			if ( $1 =~ /^WHITEBOARD$/i ) {
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] Whiteboard Commands (Level 0): SCRIBBLE, READ, SEARCH" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] SCRIBBLE <message>: Writes <message> on the whiteboard, in the next available position (currently $messageOffset / $CONFIG_BOARD_LIMIT )" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] READ <#n>: Reads message number n." );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] READ ALL: Reads all messages." );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] SEARCH <text>: Reads all messages containing <text>." );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] Whiteboard Commands (Level 0): SCRIBBLE, READ, SEARCH" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] SCRIBBLE <message>: Writes <message> on the whiteboard, in the next available position (currently $messageOffset / $CONFIG_BOARD_LIMIT )" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] READ <#n>: Reads message number n." );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] READ ALL: Reads all messages." );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] SEARCH <text>: Reads all messages containing <text>." );
 				goto _DONE;
 			}
+			
+			## Topic: Profile
 			if ( $1 =~ /^PROFILE$/i ) {
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0): SET, VIEW" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] SET <text>: Sets your profile to <text>" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] VIEW <user>: Reads the profile of <user>" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0): SET, VIEW" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] SET <text>: Sets your profile to <text>" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] VIEW <user>: Reads the profile of <user>" );
 				goto _DONE;
 			}
 			
+			## Topic: Control
 			if ( $1 =~ /^CONTROL$/i ) {
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): BOARD_SAVE, BOARD_LOAD, ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] BOARD_LOAD: Loads the contents of the whiteboard from $CONFIG_BOARD_FILE" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] BOARD_SAVE: Saves the contents of the whiteboard to $CONFIG_BOARD_FILE" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $CONFIG_USER_FILE" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $CONFIG_USER_FILE" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): BOARD_SAVE, BOARD_LOAD, ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LOAD: Loads the contents of the whiteboard from $CONFIG_BOARD_FILE" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_SAVE: Saves the contents of the whiteboard to $CONFIG_BOARD_FILE" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $CONFIG_USER_FILE" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $CONFIG_USER_FILE" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
 				goto _DONE;
 			}
 			
+			## Topic: Config
 			if ( $1 =~ /^CONFIG$/i ) {
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] CONFIG Commands (Level 5): BOARD_LIMIT, BOARD_OFFSET" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] BOARD_LIMIT: Modifies the maximum number of messages on the board. [$CONFIG_BOARD_LIMIT]" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] BOARD_OFFSET: Modifies the current position for new messages on the board. [$messageOffset]" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] CONFIG Commands (Level 5): BOARD_LIMIT, BOARD_OFFSET" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LIMIT: Modifies the maximum number of messages on the board. [$CONFIG_BOARD_LIMIT]" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_OFFSET: Modifies the current position for new messages on the board. [$messageOffset]" );
 				goto _DONE;
 			}
 			goto _DONE;
 		}
 		
+		## Displays the access level of the nick calling it.
 		if ( $msg =~ /^[!\.]INFO$/i ) {
 			my $commandList;
 			for (my $iCounter = 0; (($iCounter <= $control) && ($iCounter <= (@commands - 1))); $iCounter++) {
 				$commandList .= $commands[$iCounter];
 			}
-			$kernel->post( magnet => privmsg => $echoLocation, "[?] $nick (Rank $control)" );
-			if ( $control >= 0 ) { $kernel->post( magnet => privmsg => $echoLocation, "[?] Allowed Commands: $commandList" ); }
+			$kernel->post( bot => privmsg => $echoLocation, "[?] $nick (Rank $control)" );
+			if ( $control >= 0 ) { $kernel->post( bot => privmsg => $echoLocation, "[?] Allowed Commands: $commandList" ); }
 			goto _DONE;
 		}
 	
@@ -505,7 +547,9 @@ sub on_public {
 	# Handler for undefined access levels (Banned, etc) #
 	#####################################################
 	
-	else {	}
+	else {
+		goto _DONE;
+	}
     
 _DONE:
 
