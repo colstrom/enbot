@@ -35,14 +35,14 @@ use Config::Abstract::Ini;
 # Configure Global Settings #
 #############################
 
-my $CONFIG_NICK		= 'enBot'; # . $$ % 1000;
-my $CONFIG_USERNAME	= 'enBot';
+my $CONFIG_NICK		= 'zenBot';
+my $CONFIG_USERNAME	= 'zenBot';
 my $CONFIG_IRCNAME	= 'Perl-based IRC Bot';
 my $CONFIG_SERVER	= 'bots.esper.net';
 my $CONFIG_PORT		= '5555';
 
 my @CONFIG_CHANNEL;
-	$CONFIG_CHANNEL[0] = '#en';
+	$CONFIG_CHANNEL[0] = '#enBot';
 	$CONFIG_CHANNEL[1] = '#enBot';
 	$CONFIG_CHANNEL[2] = '#enGames';
 
@@ -59,49 +59,70 @@ my @commands;
 	$commands[5] = '(CONFIG) ';
 	$commands[6] = '(M) (GETTHEFUCKOUTOFHERE) ';
 
-###############################
-# Create Access Control Lists #
-###############################
+########################
+# Module Configuration #
+########################
 
-my $ACL_AUTHOR = 'SiliconViper';
-my $ACL_OWNER = 'SiliconViper';
-my $ACL_FOUNDER;
-my $ACL_SOP;
-my $ACL_AOP;
-my $ACL_HOP;
-my $ACL_VOICE;
-my $ACL_NORMAL;
-my $ACL_BANNED;
-
-############################
-# Whiteboard Configuration #
-############################
-
-my $CONFIG_BOARD_FILE = 'db.whiteboard';
-my $CONFIG_BOARD_LIMIT = 100;
-
-my @messageBody;
-my $messageOffset = 0;
-my $restrictLooping = 0;
-
-###############################
-# User Settings Configuration #
-###############################
-
-my $CONFIG_USER_FILE = 'settings-user.ini';
-my $USER_SETTINGS;
-
-#################
-# Special Flags #
-#################
+my %module = ();
 	
-my %triggerFlag = (
-	"Load Board"	=> 0,
-	"Save Board"	=> 0,
-	"Load Profile"	=> 0,
-	"Save Profile"	=> 0,
-	"Reload ACL"	=> 0
-);
+	
+	
+	$module{'Active'}{'Access Control'} = 1;
+		$module{'Access Control'}{'List'}{'Author'}	= 'SiliconViper';
+		$module{'Access Control'}{'File'}{'Author'}	= '/dev/null';
+		$module{'Access Control'}{'Level'}{'Author'}	= '999';
+		
+		$module{'Access Control'}{'List'}{'Owner'}	= 'SiliconViper';
+		$module{'Access Control'}{'File'}{'Owner'}	= '/dev/null';
+		$module{'Access Control'}{'Level'}{'Owner'}	= '666';
+		
+		$module{'Access Control'}{'List'}{'Founder'}	= '';
+		$module{'Access Control'}{'File'}{'Founder'}	= 'acl.founder';
+		$module{'Access Control'}{'Level'}{'Founder'}	= '5';
+		
+		$module{'Access Control'}{'List'}{'SOP'}	= '';
+		$module{'Access Control'}{'File'}{'SOP'}	= 'acl.sop';
+		$module{'Access Control'}{'Level'}{'SOP'}	= '4';
+		
+		$module{'Access Control'}{'List'}{'AOP'}	= '';
+		$module{'Access Control'}{'File'}{'AOP'}	= 'acl.aop';
+		$module{'Access Control'}{'Level'}{'AOP'}	= '3';
+		
+		$module{'Access Control'}{'List'}{'HOP'}	= '';
+		$module{'Access Control'}{'File'}{'HOP'}	= 'acl.hop';
+		$module{'Access Control'}{'Level'}{'HOP'}	= '2';
+		
+		$module{'Access Control'}{'List'}{'Voice'}	= '';
+		$module{'Access Control'}{'File'}{'Voice'}	= 'acl.voice';
+		$module{'Access Control'}{'Level'}{'Voice'}	= '1';
+		
+		$module{'Access Control'}{'List'}{'Normal'}	= '';
+		$module{'Access Control'}{'File'}{'Normal'}	= 'acl.normal';
+		$module{'Access Control'}{'Level'}{'Normal'}	= '0';
+		
+		$module{'Access Control'}{'List'}{'Banned'}	= '';
+		$module{'Access Control'}{'File'}{'Banned'}	= 'acl.banned';
+		$module{'Access Control'}{'Level'}{'Banned'}	= '-2';
+	
+	
+	
+	$module{'Active'}{'Whiteboard'} = 1;
+		my @module_whiteboard_message;
+		$module{'Whiteboard'}{'File'}			= 'db.whiteboard';
+		$module{'Whiteboard'}{'Limit'}			= '10';
+		$module{'Whiteboard'}{'Offset'}			= '0';
+		$module{'Whiteboard'}{'Restrict Looping'}	= 0;
+		$module{'Whiteboard'}{'Message'}		= \@module_whiteboard_message;
+	
+	
+	
+	$module{'Active'}{'User Settings'} = 1;
+		$module{'User Settings'}{'File'}	= 'settings-user.ini';
+		$module{'User Settings'}{'Data'}	= '';
+	
+	
+	
+	$module{'Active'}{'Profile'} = 1;
 	
 ################################
 # Create and Configure the Bot #
@@ -204,15 +225,15 @@ sub on_public {
 	## a control level, which is used to detemine which commands can be used.
 	
 	my $control = -1;
-	if ( $ACL_NORMAL =~ /$nick/ ) { $control = 0; }
-	if ( $ACL_VOICE =~ /$nick/ ) { $control = 1; }
-	if ( $ACL_HOP =~ /$nick/ ) { $control = 2; }
-	if ( $ACL_AOP =~ /$nick/ ) { $control = 3; }
-	if ( $ACL_SOP =~ /$nick/ ) { $control = 4; }
-	if ( $ACL_FOUNDER =~ /$nick/ ) { $control = 5; }
-	if ( $ACL_OWNER =~ /$nick/ ) { $control = 666; }
-	if ( $ACL_AUTHOR =~ /$nick/ ) { $control = 999; }
-	if ( $ACL_BANNED =~ /$nick/ ) { $control = -2; }
+	if ( $module{'Access Control'}{'List'}{'Normal'} =~ /$nick/ ) { $control = 0; }
+	if ( $module{'Access Control'}{'List'}{'Voice'} =~ /$nick/ ) { $control = 1; }
+	if ( $module{'Access Control'}{'List'}{'HOP'} =~ /$nick/ ) { $control = 2; }
+	if ( $module{'Access Control'}{'List'}{'AOP'} =~ /$nick/ ) { $control = 3; }
+	if ( $module{'Access Control'}{'List'}{'SOP'} =~ /$nick/ ) { $control = 4; }
+	if ( $module{'Access Control'}{'List'}{'Founder'} =~ /$nick/ ) { $control = 5; }
+	if ( $module{'Access Control'}{'List'}{'Owner'} =~ /$nick/ ) { $control = 666; }
+	if ( $module{'Access Control'}{'List'}{'Author'} =~ /$nick/ ) { $control = 999; }
+	if ( $module{'Access Control'}{'List'}{'Banned'} =~ /$nick/ ) { $control = -2; }
 	
 	######################
 	# User ID Generation #
@@ -235,10 +256,11 @@ sub on_public {
 	## in the channel it was called from. If prefixed with '.', it responds with 
 	## a private message.
 	
+	my $command;
 	if ( ( $msg =~ /^!/ ) && ( $control >= 1 ) ) { $echoLocation = $channel; }
 	if ( $msg =~ /^\./ ) { $echoLocation = $nick; }
 	
-	
+	if ( $msg =~ /^[!|\.](.+)/i ) { $command = $1; }
 	
 	######################
 	# Bot Owner Commands #
@@ -269,15 +291,15 @@ sub on_public {
 	if ( $control >= 4 ) {
 		## Alters the maximum number of entries the board will store.
 		if ( $msg =~ /^[!|\.]config BOARD_LIMIT (.+)/i ) {
-			$CONFIG_BOARD_LIMIT = $1; 
-			$kernel->post( bot => privmsg => $echoLocation, " [*] CONFIG_BOARD_LIMIT set to $CONFIG_BOARD_LIMIT. " );
+			$module{'Whiteboard'}{'Limit'} = $1; 
+			$kernel->post( bot => privmsg => $echoLocation, " [*] CONFIG_BOARD_LIMIT set to $module{'Whiteboard'}{'Limit'}. " );
 			goto _DONE;
 		}
 		
 		## Resets the 'next message' marker to whatever position is specified.
 		if ( $msg =~ /^[!|\.]config BOARD_OFFSET (.+)/i ) {
-			$messageOffset = $1;
-			$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $messageOffset / $CONFIG_BOARD_LIMIT" );
+			$module{'Whiteboard'}{'Offset'} = $1;
+			$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $module{'Whiteboard'}{'Offset'} / $module{'Whiteboard'}{'Limit'}" );
 			goto _DONE;
 		}
 	}
@@ -293,31 +315,52 @@ sub on_public {
 			
 			## Loads the access control lists from a file. Yes, I realize this is ugly.
 			if ( $1 =~ /^ACL_RELOAD$/i ) {
-				open (acl, "acl.founder") || die ( "Could not open file. $!"); $ACL_FOUNDER = <acl>; close (acl);
-				open (acl, "acl.sop") || die ( "Could not open file. $!"); $ACL_SOP = <acl>; close (acl);
-				open (acl, "acl.aop") || die ( "Could not open file. $!"); $ACL_AOP = <acl>; close (acl);
-				open (acl, "acl.hop") || die ( "Could not open file. $!"); $ACL_HOP = <acl>; close (acl);
-				open (acl, "acl.voice") || die ( "Could not open file. $!"); $ACL_VOICE = <acl>; close (acl);
-				open (acl, "acl.normal") || die ( "Could not open file. $!"); $ACL_NORMAL = <acl>; close (acl);
-				open (acl, "acl.banned") || die ( "Could not open file. $!"); $ACL_BANNED = <acl>; close (acl);
+				open (acl, $module{'Access Control'}{'File'}{'Founder'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'Founder'} = <acl>;
+				close (acl);
+				
+				open (acl, $module{'Access Control'}{'File'}{'SOP'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'SOP'} = <acl>;
+				close (acl);
+				
+				open (acl, $module{'Access Control'}{'File'}{'AOP'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'AOP'} = <acl>;
+				close (acl);
+				
+				open (acl, $module{'Access Control'}{'File'}{'HOP'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'HOP'} = <acl>;
+				close (acl);
+				
+				open (acl, $module{'Access Control'}{'File'}{'Voice'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'Voice'} = <acl>;
+				close (acl);
+				
+				open (acl, $module{'Access Control'}{'File'}{'Normal'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'Normal'} = <acl>;
+				close (acl);
+				
+				open (acl, $module{'Access Control'}{'File'}{'Banned'}) || die ( "Could not open file. $!");
+					$module{'Access Control'}{'List'}{'Banned'} = <acl>;
+				close (acl);
+				
 				$kernel->post( bot => privmsg => $echoLocation, " [*] Access Control Lists reloaded. " );
 				goto _DONE
 			}
 			
 			if ( $1 =~ /^BOARD_SAVE$/i ) {
-				$triggerFlag{"Save Board"} = 1;
-				goto _DONE;
+				$module{'Whiteboard'}{'Called'} = 1;
+				$module{'Whiteboard'}{'Save'} = 1;
 			}
 			
 			## This one populates the whiteboard from a file, and sets the 'next message' 
 			## marker to however many entries there are, plus one.
 			if ( $1 =~ /^BOARD_LOAD$/i ) {
-				open (board, "$CONFIG_BOARD_FILE") || die ("Could not open file. $!"); 
-					@messageBody = <board>;
+				open (board, $module{'Whiteboard'}{'File'}) || die ("Could not open file. $!"); 
+					$module{'Whiteboard'}{'Message'} = <board>;
 				close (board);
-				$messageOffset = (@messageBody - 1);
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Board loaded from $CONFIG_BOARD_FILE. " );
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $messageOffset / $CONFIG_BOARD_LIMIT" );
+				$module{'Whiteboard'}{'Offset'} = ($module{'Whiteboard'}{'Message'} - 1);
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Board loaded from $module{'Whiteboard'}{'File'}. " );
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $module{'Whiteboard'}{'Offset'} / $module{'Whiteboard'}{'Limit'}" );
 				goto _DONE;
 			}
 			
@@ -325,20 +368,20 @@ sub on_public {
 			## Loads settings for users from a file. Currently, this is only used for 
 			## profiles, but more uses are planned.
 			if ( $1 =~ /^USERS_LOAD$/i ) {
-				$USER_SETTINGS = new Config::Abstract::Ini($CONFIG_USER_FILE);
-				$kernel->post( bot => privmsg => $echoLocation, " [*] User settings loaded from $CONFIG_USER_FILE. " );
+				$module{'User Settings'}{'Data'} = new Config::Abstract::Ini($module{'User Settings'}{'File'});
+				$kernel->post( bot => privmsg => $echoLocation, " [*] User settings loaded from $module{'User Settings'}{'File'}. " );
 				goto _DONE;
 			}
 			
 			if ( $1 =~ /^USERS_SAVE$/i ) {
-				$triggerFlag{"Save Profile"} = 1;
-				goto _DONE;
+				$module{'Profile'}{'Called'} = 1;
+				$module{'Profile'}{'Save'} = 1;
 			}
 			
 			## Erases a message from the whiteboard, and replaces it with a message 
 			## indicating who erased it.
 			if ( $1 =~ /^BOARD_MESSAGE_ERASE (.+)/i ) {
-				$messageBody[$1] = " [X] Erased by $nick";
+				$module{'Whiteboard'}{'Message'}[$1] = " [X] Erased by $nick";
 				$kernel->post( bot => privmsg => $echoLocation, "Message $1 erased by $nick" );
 				goto _DONE;
 			}
@@ -354,34 +397,6 @@ sub on_public {
 		}
 	}
 	
-	## This one saves the contents of the whiteboard to a file. 
-	## 'script.noemptylines' is a simple shellscript to strip blank lines, as a 
-	## halfassed workaround for the fact that it sometimes inserts them if you omit 
-	## the 'print board ("\n"), and sometimes doesn't. This way, it appends a 
-	## newline, regardless, and just strips out any excess lines created by this.
-	if ( $triggerFlag{"Save Board"} > 0 ) {
-		open (board, ">$CONFIG_BOARD_FILE") || die ("Could not open file. $!");
-			print board join("\n",@messageBody);
-			print board ("\n");
-		close (board);
-		system(". ./script.noemptylines ");
-		if ( $msg =~ /^[!|\.]/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, " [*] Board saved to $CONFIG_BOARD_FILE. " );
-		}
-		$triggerFlag{"Save Board"} = 0;
-	}
-	
-	## Saves user settings to a file.
-	if ( $triggerFlag{"Save Profile"} > 0 ) {
-		open (users, ">$CONFIG_USER_FILE") || die ("Could not open file. $!");
-			print users "$USER_SETTINGS";
-		close (users);
-		if ( $msg =~ /^[!|\.]/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, " [*] User settings saved to $CONFIG_USER_FILE. " );
-		}
-		$triggerFlag{"Save Profile"} = 0;
-	}
-	
 	#####################
 	# HalfOper Commands #
 	#####################
@@ -392,31 +407,31 @@ sub on_public {
 		## a single section, if you want.
 		if ( $msg =~ /^[!|\.]SHOW ACL (.+)$/i ) {
 			if ( $1 =~ /^AUTHOR$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Author: $ACL_AUTHOR " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Author: $module{'Access Control'}{'List'}{'Author'} " );
 			}
 			if ( $1 =~ /^OWNER$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Owner: $ACL_OWNER " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Owner: $module{'Access Control'}{'List'}{'Owner'} " );
 			}
 			if ( $1 =~ /^FOUNDER$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Founder: $ACL_FOUNDER " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Founder: $module{'Access Control'}{'List'}{'Founder'} " );
 			}
 			if ( $1 =~ /^SOP$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] SuperOpers: $ACL_SOP " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] SuperOpers: $module{'Access Control'}{'List'}{'SOP'} " );
 			}
 			if ( $1 =~ /^AOP$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Opers: $ACL_AOP " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Opers: $module{'Access Control'}{'List'}{'AOP'} " );
 			}
 			if ( $1 =~ /^HOP$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] HalfOpers: $ACL_HOP " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] HalfOpers: $module{'Access Control'}{'List'}{'HOP'} " );
 			}
 			if ( $1 =~ /^VOICE$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Voiced Users: $ACL_VOICE " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Voiced Users: $module{'Access Control'}{'List'}{'Voice'} " );
 			}
 			if ( $1 =~ /^NORMAL$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Normal Users: $ACL_NORMAL " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Normal Users: $module{'Access Control'}{'List'}{'Normal'} " );
 			}
 			if ( $1 =~ /^BANNED$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Banned Users: $ACL_BANNED " );
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Banned Users: $module{'Access Control'}{'List'}{'Banned'} " );
 			}
 			goto _DONE;
 		}
@@ -445,73 +460,38 @@ sub on_public {
 	
 	if ( $control >= 0 ) {
 		
-		if ( $msg =~ /^[!|\.]READ (.+)/i ) {
-			## WARNING!! This subroutine has been known to lag the bot, if used in 
-			## conjunction with a large whiteboard. It displays every message on the 
-			## board. For anti-flooding reasons, this ONLY sends via private message, 
-			## even if called with a public trigger.
-			if ( $1 =~ /^ALL$/i ) {
-				for (my $iCounter = 0; $iCounter < @messageBody; $iCounter++) {
-					$kernel->post( bot => privmsg => $nick, "Reading Message $iCounter: $messageBody[$iCounter]" );
-				}
-				goto _DONE;
+		if ( ( $module{'Active'}{'Whiteboard'} eq 1 ) && ( $command =~ /^Whiteboard (.+)/i ) ) {
+			
+			if ( $1 =~ /^Read (.+)/i ) {
+				$module{'Whiteboard'}{'Called'} = 1;
+				$module{'Whiteboard'}{'Read'} = $1;
 			}
 			
-			## Displays the message matching the number specified.
-			if ( $1 =~ /^#(.+)/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "Reading Message $1: $messageBody[$1]" );
-				goto _DONE;
-			}
-		}
-		
-		## Searched the whiteboard for any messages matching a simple /query/ regex.
-		## There is a known bug here, that may crash the bot, if the query ends with 
-		## a '\'. This causes the regex to be read as /query\/, which escapes the 
-		## regex, and causes the bot to die.
-		if ( $msg =~ /^[!|\.]SEARCH (.+)/i ) {
-			for (my $iCounter = 0; $iCounter < @messageBody; $iCounter++) {
-				if ($messageBody[$iCounter] =~ /$1/) {
-					$kernel->post( bot => privmsg => $echoLocation, "Reading Message $iCounter: $messageBody[$iCounter]" );
-				}
-			}
-			goto _DONE;
-		}
-		
-		## Writes a message on the whiteboard, in the position indicated by the 
-		## 'next message' marker ($messageOffset).
-		if ( $msg =~ /^[!|\.]SCRIBBLE (.+)/i ) {
-			if ( ( ( @messageBody > $CONFIG_BOARD_LIMIT ) || ( $messageOffset > $CONFIG_BOARD_LIMIT ) ) && ( $restrictLooping = 0 ) ) {
-				$messageOffset = 0; $restrictLooping = 1;
-			}
-			if ( $messageOffset eq ( $CONFIG_BOARD_LIMIT - 1 ) ) { $restrictLooping = 0; }
-			
-			$messageBody[$messageOffset] = "$1  - $nick";
-			$kernel->post( bot => privmsg => $echoLocation, "Message \#$messageOffset Saved: $messageBody[$messageOffset]" );
-			$messageOffset++;
-			$triggerFlag{"Save Board"} = 1;
-			goto _DONE;
-		}
-		
-		if ( $msg =~ /^[!|\.]PROFILE (.+)/i ) {
-			## Sets the profile for the user calling it to whatever they specify.
-			if ( $1 =~ /^SET (.+)/i ) {
-				$USER_SETTINGS->set_entry_setting("$nick",'PROFILE',"$1");
-				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
-				$triggerFlag{"Save Profile"} = 1;
-				goto _DONE;
+			if ( $1 =~ /^Scribble (.+)/i ) {
+				$module{'Whiteboard'}{'Called'} = 2;
+				$module{'Whiteboard'}{'Write'} = $1;
 			}
 			
-			## Displays the profile for the user specified. Has a known bug that causes it 
-			## to spew errors to console. Doesn't crash, just errors. This happens if 
-			## someone attempts to view a nonexistant profile.
-			if ( $1 =~ /^VIEW (.+)/i ) {
-				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$1","PROFILE","Profile Not Set");
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $1: $tmpBuffer" );
-				goto _DONE;
+			if ( $1 =~ /^Search (.+)/i ) {
+				$module{'Whiteboard'}{'Called'} = 3;
+				$module{'Whiteboard'}{'Search'} = $1;
 			}
+			
 		}
 		
+		if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $command =~ /^Profile (.+)/i ) ) {
+			
+			if ( $1 =~ /^View (.+)/i ) {
+				$module{'Profile'}{'Called'} = 1;
+				$module{'Profile'}{'Read'} = $1;
+			}
+			
+			if ( $1 =~ /^Set (.+)/i ) {
+				$module{'Profile'}{'Called'} = 2;
+				$module{'Profile'}{'Write'} = $1;
+			}
+			
+		}
 	}
 	
 	
@@ -536,7 +516,7 @@ sub on_public {
 			## Topic: Whiteboard
 			if ( $1 =~ /^WHITEBOARD$/i ) {
 				$kernel->post( bot => privmsg => $echoLocation, "[?] Whiteboard Commands (Level 0): SCRIBBLE, READ, SEARCH" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] SCRIBBLE <message>: Writes <message> on the whiteboard, in the next available position (currently $messageOffset / $CONFIG_BOARD_LIMIT )" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] SCRIBBLE <message>: Writes <message> on the whiteboard, in the next available position (currently $module{'Whiteboard'}{'Offset'} / $module{'Whiteboard'}{'Limit'} )" );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] READ <#n>: Reads message number n." );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] READ ALL: Reads all messages." );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] SEARCH <text>: Reads all messages containing <text>." );
@@ -554,10 +534,10 @@ sub on_public {
 			## Topic: Control
 			if ( $1 =~ /^CONTROL$/i ) {
 				$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): BOARD_SAVE, BOARD_LOAD, ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LOAD: Loads the contents of the whiteboard from $CONFIG_BOARD_FILE" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_SAVE: Saves the contents of the whiteboard to $CONFIG_BOARD_FILE" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $CONFIG_USER_FILE" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $CONFIG_USER_FILE" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LOAD: Loads the contents of the whiteboard from $module{'Whiteboard'}{'File'}" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_SAVE: Saves the contents of the whiteboard to $module{'Whiteboard'}{'File'}" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $module{'User Settings'}{'File'}" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $module{'User Settings'}{'File'}" );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
 				goto _DONE;
@@ -566,8 +546,8 @@ sub on_public {
 			## Topic: Config
 			if ( $1 =~ /^CONFIG$/i ) {
 				$kernel->post( bot => privmsg => $echoLocation, "[?] CONFIG Commands (Level 5): BOARD_LIMIT, BOARD_OFFSET" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LIMIT: Modifies the maximum number of messages on the board. [$CONFIG_BOARD_LIMIT]" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_OFFSET: Modifies the current position for new messages on the board. [$messageOffset]" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LIMIT: Modifies the maximum number of messages on the board. [$module{'Whiteboard'}{'Limit'}]" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_OFFSET: Modifies the current position for new messages on the board. [$module{'Whiteboard'}{'Offset'}]" );
 				goto _DONE;
 			}
 			goto _DONE;
@@ -598,8 +578,110 @@ sub on_public {
     
 _DONE:
 
+######################
+# Module Code Blocks #
+######################
+
+########################################
+## Whiteboard Module by Chris Olstrom ##
+if ( ( $module{'Active'}{'Whiteboard'} eq 1 ) && ( $module{'Whiteboard'}{'Called'} > 0 ) ) {
+
+	## Displays the message matching the number specified.
+	if ( $module{'Whiteboard'}{'Called'} eq 1 ) {
+		$kernel->post( bot => privmsg => $echoLocation, "Reading Message $module{'Whiteboard'}{'Read'}: $module{'Whiteboard'}{'Message'}[$module{'Whiteboard'}{'Read'}]" );
+	}
+	
+	## Writes a message on the whiteboard, in the position indicated by the 
+	## 'next message' marker ($module{'Whiteboard'}{'Offset'}).
+	if ( $module{'Whiteboard'}{'Called'} eq 2 ) {
+		if ( ( ( $module{'Whiteboard'}{'Message'} > $module{'Whiteboard'}{'Limit'} ) || ( $module{'Whiteboard'}{'Offset'} > $module{'Whiteboard'}{'Limit'} ) ) && ( $module{'Whiteboard'}{'Restrict Looping'} = 0 ) ) {
+			$module{'Whiteboard'}{'Offset'} = 0; $module{'Whiteboard'}{'Restrict Looping'} = 1;
+		}
+		if ( $module{'Whiteboard'}{'Offset'} eq ( $module{'Whiteboard'}{'Limit'} - 1 ) ) { $module{'Whiteboard'}{'Restrict Looping'} = 0; }
+		
+		$module{'Whiteboard'}{'Message'}[$module{'Whiteboard'}{'Offset'}] = "$module{'Whiteboard'}{'Write'} - $nick";
+		$kernel->post( bot => privmsg => $echoLocation, "Message \#$module{'Whiteboard'}{'Offset'} Saved: $module{'Whiteboard'}{'Message'}[$module{'Whiteboard'}{'Offset'}]" );
+		$module{'Whiteboard'}{'Offset'}++;
+		$module{'Whiteboard'}{'Save'} = 1;
+	}
+
+	## Searched the whiteboard for any messages matching a simple /query/ regex.
+	## There is a known bug here, that may crash the bot, if the query ends with 
+	## a '\'. This causes the regex to be read as /query\/, which escapes the 
+	## regex, and causes the bot to die.
+	if ( $module{'Whiteboard'}{'Called'} eq 3 ) {
+		for (my $iCounter = 0; $iCounter < $module{'Whiteboard'}{'Message'}; $iCounter++) {
+			if ($module{'Whiteboard'}{'Message'}[$iCounter] =~ /$module{'Whiteboard'}{'Search'}/) {
+				$kernel->post( bot => privmsg => $echoLocation, "Reading Message $iCounter: $module{'Whiteboard'}{'Message'}[$iCounter]" );
+			}
+		}
+	}
+
+	## This one saves the contents of the whiteboard to a file. 
+	## 'script.noemptylines' is a simple shellscript to strip blank lines, as a 
+	## halfassed workaround for the fact that it sometimes inserts them if you omit 
+	## the 'print board ("\n"), and sometimes doesn't. This way, it appends a 
+	## newline, regardless, and just strips out any excess lines created by this.
+	if ( $module{'Whiteboard'}{'Save'} eq 1 ) {
+		open (board, ">$module{'Whiteboard'}{'File'}") || die ("Could not open file. $!");
+			print board join("\n",$module{'Whiteboard'}{'Message'});
+			print board ("\n");
+		close (board);
+		system(". ./script.noemptylines ");
+		if ( $msg =~ /^[!|\.]/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, " [*] Board saved to $module{'Whiteboard'}{'File'}. " );
+		}
+		$module{'Whiteboard'}{'Save'} = 0;
+	}
+
+	$module{'Whiteboard'}{'Called'} = 0;
 }
-  # Run the bot until it is done.
+
+
+
+#####################################
+## Profile Module by Chris Olstrom ##
+if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0 ) ) {
+
+	## Displays the profile for the user specified. Has a known bug that causes it 
+	## to spew errors to console. Doesn't crash, just errors. This happens if 
+	## someone attempts to view a nonexistant profile.
+	if ( $module{'Profile'}{'Called'} eq 1 ) {
+		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$1","PROFILE","Profile Not Set");
+		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $1: $tmpBuffer" );
+	}
+	
+	## Sets the profile for the user calling it to whatever they specify.
+	if ( $module{'Profile'}{'Called'} eq 2 ) {
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'PROFILE',"$1");
+		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
+		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
+		$module{'Profile'}{'Save'} = 1;
+	}
+	
+	## Saves user settings to a file.
+	if ( $module{'Profile'}{'Save'} eq 1 ) {
+		open (users, ">$module{'User Settings'}{'File'}") || die ("Could not open file. $!");
+			print users "$module{'User Settings'}{'Data'}";
+		close (users);
+		if ( $msg =~ /^[!|\.]/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, " [*] User settings saved to $module{'User Settings'}{'File'}. " );
+		}
+		$module{'Profile'}{'Save'} = 0;
+	}
+
+	$module{'Profile'}{'Called'} = 0;
+}
+
+##############################
+##############################
+## Install New Modules Here ##
+##############################
+##############################
+
+}
+
+# Run the bot until it is done.
 $poe_kernel->run();
 
 _TERM:
