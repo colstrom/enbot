@@ -242,6 +242,12 @@ sub on_public {
 			goto _TERM;
 		}
 		
+		## Bot attempts rebirth.
+		if ( $command =~ /^REBIRTH$/i ) {
+			exec ( '/home/siliconviper/src/clean/sh/launch-enbot.sh' );
+		}
+			
+		
 	}
 	
 	
@@ -698,6 +704,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 		my $player_pdef		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_PDEF',1);
 		my $player_mpow		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_MPOW',0);
 		my $player_mres		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_MRES',0);
+		my $player_grimoire	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_GRIMOIRE','');
 		my $required_exp	= 0;
 		my $levelup_hp		= 0;
 		my $levelup_mp		= 0;
@@ -743,9 +750,9 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 			
 			$player_exp -= $required_exp;
 			
-			if ( ( $choice =~ /^MAGIC$/i ) || ( $choice =~ /^SPELL/i ) ) {
-				if ( $choice =~ /^SPELL HEAL$/i ) {
-					$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_GRIMOIRE','HEAL');
+			if ( ( $choice =~ /^MAGIC$/i ) || ( $choice =~ /^SPELL (.+)/i ) ) {
+				if ( ( $1 =~ /^HEAL$/i ) && ( $player_grimoire =~ /HEAL/i ) ) {
+					$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_GRIMOIRE',"$player_grimoire HEAL");
 				}
 				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has consumed $required_exp\ experience, and learned $stat_name\! " );
 			} else {
@@ -866,6 +873,9 @@ if ( ( $module{'Active'}{'Profile'} == 1 ) && ( $module{'Profile'}{'Called'} > 0
 			} elsif ( $1 =~ /^ICQ (.+)/i ) {
 				my $im_icq = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_ICQ','ICQ not set.');
 				$kernel->post( bot => privmsg => $echoLocation, " [*] ICQ Account for $1: $im_icq " );
+			} elsif ( $1 =~ /^YAHOO (.+)/i ) {
+				my $im_yahoo = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_YAHOO','YAHOO not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Yahoo Account for $1: $im_yahoo " );
 			} if ( $1 =~ /^MAIN (.+)/i ) {
 				my $main_nick = $module{'User Settings'}{'Data'}->get_entry_setting("$1",'Profile_Main','');
 				$kernel->post( bot => privmsg => $echoLocation, " [*] $1 has declared their primary nick as: $main_nick " );
@@ -902,6 +912,10 @@ if ( ( $module{'Active'}{'Profile'} == 1 ) && ( $module{'Profile'}{'Called'} > 0
 				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_ICQ',"$1");
 				my $im_icq = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_ICQ','ICQ not set.');
 				$kernel->post( bot => privmsg => $echoLocation, " [*] ICQ Account for $nick set to: $im_icq " );
+			} elsif ( $1 =~ /^YAHOO (.+)/i ) {
+				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_YAHOO',"$1");
+				my $im_yahoo = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_YAHOO','Yahoo not set.');
+				$kernel->post( bot => privmsg => $echoLocation, " [*] Yahoo Account for $nick set to: $im_yahoo " );
 			} if ( $1 =~ /^MAIN (.+)/i ) {
 				$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Profile_Main',"$1");
 				my $main_nick = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Profile_Main','');
