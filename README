@@ -1,0 +1,12 @@
+Name: enBot
+Version: 1.0 (2005-03-02)
+Description: IRC bot written in Perl.
+Homepage: http://colstrom.whatthefork.org/software/perl/enbot/
+
+2005-03-02
+v1.0 is FINALLY released, with all the features I wanted. Flexible 
+design, simple layout, and easy-to-write modules. With a bit of luck, it 
+will be a long time before you see another release of the enBot core. 
+All the work should be done in the modules, unless there is a bug in the 
+core. Thanks to everyone who helped test this, and who enjoyed the 
+previous versions enough for me to keep working on this.

@@ -36,10 +36,7 @@ my $botSettings		= new Config::Abstract::Ini('config/settings.ini');
 my $moduleSettings	= new Config::Abstract::Ini('config/modules.ini');
 
 # Load Modules
-require 'modules/message.pm';
-require 'modules/logging.pm';
-require 'modules/triggers.pm';
-require 'modules/accesscontrol.pm';
+require 'modules/core.pm';
 
 ################################
 # Create and Configure the Bot #
@@ -83,16 +80,16 @@ sub bot_start {
 # Here's where we make it do something useful, like identify with nickserv, and 
 # join a few channels, so it can be an attention-whore.
 sub on_connect {
-	my @channelList	= split / /,$botSettings->get_entry_setting('Server','CHANNELS','');
+	my @channelList	= split / /,$botSettings->get_entry_setting('Server','CHANNELS','');	# Get a list of channels to join, from configuration file.
 	
 	for ( my $iCounter = 0; $iCounter < @channelList; $iCounter++ ) {			# Fix to make the entries useable. Since '#' is interpreted as a comment, 
 		$channelList[$iCounter] = "#".$channelList[$iCounter];					# prefixing channel names with it in the configuration file causes problems.
 	}																			# We can fix this, by parsing the entries, and prepending them with a '#'.
 	
-	my $passwd = $botSettings->get_entry_setting('Bot','PASS','password');
-	$_[KERNEL]->post( bot => privmsg => 'NickServ', "IDENTIFY $passwd" );
+	my $passwd = $botSettings->get_entry_setting('Bot','PASS','password');		# Read password from configuration file.
+	$_[KERNEL]->post( bot => privmsg => 'NickServ', "IDENTIFY $passwd" );		# IDENTIFY with NickServ
 	for (my $iCounter = 0; $iCounter < @channelList; $iCounter++) {
-		$_[KERNEL]->post( bot => join => $channelList[$iCounter] );
+		$_[KERNEL]->post( bot => join => $channelList[$iCounter] );				# Join all the channels in the list.
 	}
 }
 
@@ -100,9 +97,9 @@ sub on_connect {
 # Someone said something, and the bot saw it.
 # How does it react? That's all handled here.
 sub on_public {
-	my ( $kernel, $who, $where, $messageBody ) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
+	my ( $kernel, $who, $where, $message ) = @_[ KERNEL, ARG0, ARG1, ARG2 ];
 	
-	HandleMessage($kernel,$moduleSettings,$kernel,$who,$where,$messageBody);
+	HandleMessage($kernel,$moduleSettings,$kernel,$who,$where,$message);
 }
 
 # Run the bot until it is done.
