@@ -413,7 +413,7 @@ _DONE:
 
 ########################################
 ## Contention Module by Chris Olstrom ##
-## v0.4.7
+## v0.4.7-1
 if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Arguments'} ne '' ) ) {
 	my ($called_by,$action) = split /::/,$module{'Contention'}{'Arguments'},2;
 	
@@ -588,7 +588,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 						
 						if ( $totalExp > ( $a_level * 500 * 1.5 ) ) {
 							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name has passed the experience threshold, forcing level gain..." );
-							$nick = $attacker; $action = 'CONTENTION SPEND EXPERIENCE LEVEL';
+							$nick = $attacker; $action = 'SPEND EXPERIENCE LEVEL';
 						}
 						
 						my $exp_penalty = int ( $rewardExp / 4 );
@@ -619,7 +619,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 							
 							if ( $totalExp > ( $d_level * 500 * 1.5 ) ) {
 								$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name has passed the experience threshold, forcing level gain..." );
-								$nick = $defender; $action = 'CONTENTION SPEND EXPERIENCE LEVEL';
+								$nick = $defender; $action = 'SPEND EXPERIENCE LEVEL';
 							}
 							
 							my $exp_penalty = int ( $rewardExp / 4 );
