@@ -35,11 +35,13 @@ use Config::Abstract::Ini;
 # Configure Global Settings #
 #############################
 
-my $CONFIG_NICK		= 'enBot';
-my $CONFIG_USERNAME	= 'enBot';
-my $CONFIG_IRCNAME	= 'Perl-based IRC Bot';
-my $CONFIG_SERVER	= 'dream.esper.net';
-my $CONFIG_PORT		= '5555';
+my $CONFIG = new Config::Abstract::Ini('settings-bot.ini');
+
+my $CONFIG_NICK		= $CONFIG->get_entry_setting('Bot','NICK','Bot');
+my $CONFIG_USERNAME	= $CONFIG->get_entry_setting('Bot','USER','Bot');
+my $CONFIG_IRCNAME	= $CONFIG->get_entry_setting('Bot','DESC','Perl-Based IRC Bot');
+my $CONFIG_SERVER	= $CONFIG->get_entry_setting('Server','ADDRESS','irc.dal.net');
+my $CONFIG_PORT		= $CONFIG->get_entry_setting('Server','PORT','6667');
 
 my @CONFIG_CHANNEL;
 	$CONFIG_CHANNEL[0] = '#en';
@@ -65,63 +67,26 @@ my @commands;
 
 my %module = ();
 	
-	
-	
 	$module{'Active'}{'Access Control'} = 1;
-		$module{'Access Control'}{'List'}{'Author'}	= 'SiliconViper';
-		$module{'Access Control'}{'File'}{'Author'}	= '/dev/null';
-		$module{'Access Control'}{'Level'}{'Author'}	= '999';
-		
-		$module{'Access Control'}{'List'}{'Owner'}	= 'SiliconViper';
-		$module{'Access Control'}{'File'}{'Owner'}	= '/dev/null';
-		$module{'Access Control'}{'Level'}{'Owner'}	= '666';
-		
-		$module{'Access Control'}{'List'}{'Founder'}	= '';
-		$module{'Access Control'}{'File'}{'Founder'}	= 'acl.founder';
-		$module{'Access Control'}{'Level'}{'Founder'}	= '5';
-		
-		$module{'Access Control'}{'List'}{'SOP'}	= '';
-		$module{'Access Control'}{'File'}{'SOP'}	= 'acl.sop';
-		$module{'Access Control'}{'Level'}{'SOP'}	= '4';
-		
-		$module{'Access Control'}{'List'}{'AOP'}	= '';
-		$module{'Access Control'}{'File'}{'AOP'}	= 'acl.aop';
-		$module{'Access Control'}{'Level'}{'AOP'}	= '3';
-		
-		$module{'Access Control'}{'List'}{'HOP'}	= '';
-		$module{'Access Control'}{'File'}{'HOP'}	= 'acl.hop';
-		$module{'Access Control'}{'Level'}{'HOP'}	= '2';
-		
-		$module{'Access Control'}{'List'}{'Voice'}	= '';
-		$module{'Access Control'}{'File'}{'Voice'}	= 'acl.voice';
-		$module{'Access Control'}{'Level'}{'Voice'}	= '1';
-		
-		$module{'Access Control'}{'List'}{'Normal'}	= '';
-		$module{'Access Control'}{'File'}{'Normal'}	= 'acl.normal';
-		$module{'Access Control'}{'Level'}{'Normal'}	= '0';
-		
-		$module{'Access Control'}{'List'}{'Banned'}	= '';
-		$module{'Access Control'}{'File'}{'Banned'}	= 'acl.banned';
-		$module{'Access Control'}{'Level'}{'Banned'}	= '-2';
+		$module{'Access Control'}{'File'}	= 'settings-acl.ini';
+		$module{'Access Control'}{'Data'}	= new Config::Abstract::Ini("$module{'Access Control'}{'File'}");
 	
-	
-	
+	$module{'Active'}{'Help'} = 1;
+		$module{'Help'}{'Called'}		= 0;
+		$module{'Help'}{'Arguments'}		= '';
+		
 	$module{'Active'}{'User Settings'} = 1;
 		$module{'User Settings'}{'File'}	= 'settings-user.ini';
-		$module{'User Settings'}{'Data'}	= '';
-	
-	
+		$module{'User Settings'}{'Data'} = new Config::Abstract::Ini($module{'User Settings'}{'File'});
 	
 	$module{'Active'}{'Profile'} = 1;
 		$module{'Profile'}{'Called'}		= 0;
 		$module{'Profile'}{'Read'}		= '';
 		$module{'Profile'}{'Write'}		= '';
 		
-		
-		
 	$module{'Active'}{'Contention'} = 1;
 		$module{'Contention'}{'Called'}		= 0;
-		$module{'Contention'}{'Special'}	= '';
+		$module{'Contention'}{'Arguments'}	= '';
 		$module{'Contention'}{'Channel'}	= '#enGames';
 		$module{'Contention'}{'Last Action'}	= '';
 		
@@ -169,7 +134,7 @@ sub bot_start {
 # Here's where we make it do something useful, like identify with nickserv, and 
 # join a few channels, so it can be an attention-whore.
 sub on_connect {
-	open (passwd, 'config.passwd') || die ( "Could not open file. $!"); my $passwd = <passwd>; close (passwd);
+	my $passwd = $CONFIG->get_entry_setting('Bot','PASS','password');
 	$_[KERNEL]->post( bot => privmsg => 'NickServ', "IDENTIFY $passwd" );
 	for (my $iCounter = 0; $iCounter < @CONFIG_CHANNEL; $iCounter++) {
 		$_[KERNEL]->post( bot => join => $CONFIG_CHANNEL[$iCounter] );
@@ -228,27 +193,10 @@ sub on_public {
 	## a control level, which is used to detemine which commands can be used.
 	
 	my $control = -1;
-	if ( $module{'Access Control'}{'List'}{'Normal'} =~ /$nick/i ) { $control = 0; }
-	if ( $module{'Access Control'}{'List'}{'Voice'} =~ /$nick/i ) { $control = 1; }
-	if ( $module{'Access Control'}{'List'}{'HOP'} =~ /$nick/i ) { $control = 2; }
-	if ( $module{'Access Control'}{'List'}{'AOP'} =~ /$nick/i ) { $control = 3; }
-	if ( $module{'Access Control'}{'List'}{'SOP'} =~ /$nick/i ) { $control = 4; }
-	if ( $module{'Access Control'}{'List'}{'Founder'} =~ /$nick/i ) { $control = 5; }
-	if ( $module{'Access Control'}{'List'}{'Owner'} =~ /$nick/i ) { $control = 666; }
-	if ( $module{'Access Control'}{'List'}{'Author'} =~ /$nick/i ) { $control = 999; }
-	if ( $module{'Access Control'}{'List'}{'Banned'} =~ /$nick/i ) { $control = -2; }
 	
-	######################
-	# User ID Generation #
-	######################
-	## Generates user IDs by taking the ASCII value of each character in the nick, 
-	## and adding them together.
-
-	my $uid;
-	if (1) {
-		my @tmpBuffer = (split //, $nick);
-		for (my $iCounter = 0; $iCounter < (@tmpBuffer - 1); $iCounter++) {
-			$uid += ord @tmpBuffer[$iCounter];
+	foreach my $acl ('Normal','Voice','HalfOp','Oper','SuperOp','Founder','Owner','Author','Banned') {
+		if ( $module{'Access Control'}{'Data'}->get_entry_setting("$acl",'List','') =~ /$nick/i ) {
+			$control = $module{'Access Control'}{'Data'}->get_entry_setting("$acl",'Level',0);
 		}
 	}
 	
@@ -294,7 +242,7 @@ sub on_public {
 	if ( $control >= 4 ) {
 		if ( ( $module{'Active'}{'Contention'} eq 1 ) && ( $channel eq $module{'Contention'}{'Channel'} ) &&( $command =~ /^CONTENTION (.+)/i ) ) {
 			if ( $1 =~ /^RESTORE (.+)/i ) {
-				$module{'Contention'}{'Special'} = $1;
+				$module{'Contention'}{'Arguments'} = $1;
 				$module{'Contention'}{'Called'} = 1001;
 				goto _DONE;
 			}
@@ -315,44 +263,14 @@ sub on_public {
 	if ( $control >= 3 ) {
 		if ( $command =~ /^CONTROL (.+)/i ) {
 			
-			## Loads the access control lists from a file. Yes, I realize this is ugly.
+			## Loads the access control lists from a file.
 			if ( $1 =~ /^ACL_RELOAD$/i ) {
-				open (acl, $module{'Access Control'}{'File'}{'Founder'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'Founder'} = <acl>;
-				close (acl);
-				
-				open (acl, $module{'Access Control'}{'File'}{'SOP'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'SOP'} = <acl>;
-				close (acl);
-				
-				open (acl, $module{'Access Control'}{'File'}{'AOP'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'AOP'} = <acl>;
-				close (acl);
-				
-				open (acl, $module{'Access Control'}{'File'}{'HOP'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'HOP'} = <acl>;
-				close (acl);
-				
-				open (acl, $module{'Access Control'}{'File'}{'Voice'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'Voice'} = <acl>;
-				close (acl);
-				
-				open (acl, $module{'Access Control'}{'File'}{'Normal'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'Normal'} = <acl>;
-				close (acl);
-				
-				open (acl, $module{'Access Control'}{'File'}{'Banned'}) || die ( "Could not open file. $!");
-					$module{'Access Control'}{'List'}{'Banned'} = <acl>;
-				close (acl);
-				
+				$module{'Access Control'}{'Data'} = new Config::Abstract::Ini("$module{'Access Control'}{'File'}");
 				$kernel->post( bot => privmsg => $echoLocation, " [*] Access Control Lists reloaded. " );
 				goto _DONE
 			}
 			
-			
-			## WARNING!! This will erase any profiles that have been added, and not saved.
-			## Loads settings for users from a file. Currently, this is only used for 
-			## profiles, but more uses are planned.
+			## Loads settings for users from a file.
 			if ( $1 =~ /^USERS_LOAD$/i ) {
 				$module{'User Settings'}{'Data'} = new Config::Abstract::Ini($module{'User Settings'}{'File'});
 				$kernel->post( bot => privmsg => $echoLocation, " [*] User settings loaded from $module{'User Settings'}{'File'}. " );
@@ -380,37 +298,10 @@ sub on_public {
 	#####################
 	
 	if ( $control >= 2 ) {
-		## Displays the access control lists. I really should modifiy this to be more 
-		## flexible. As it is, it spews the entire list. You should be able to call 
-		## a single section, if you want.
-		if ( $command =~ /^SHOW ACL (.+)$/i ) {
-			if ( $1 =~ /^AUTHOR$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Author: $module{'Access Control'}{'List'}{'Author'} " );
-			}
-			if ( $1 =~ /^OWNER$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Owner: $module{'Access Control'}{'List'}{'Owner'} " );
-			}
-			if ( $1 =~ /^FOUNDER$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Founder: $module{'Access Control'}{'List'}{'Founder'} " );
-			}
-			if ( $1 =~ /^SOP$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] SuperOpers: $module{'Access Control'}{'List'}{'SOP'} " );
-			}
-			if ( $1 =~ /^AOP$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Opers: $module{'Access Control'}{'List'}{'AOP'} " );
-			}
-			if ( $1 =~ /^HOP$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] HalfOpers: $module{'Access Control'}{'List'}{'HOP'} " );
-			}
-			if ( $1 =~ /^VOICE$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Voiced Users: $module{'Access Control'}{'List'}{'Voice'} " );
-			}
-			if ( $1 =~ /^NORMAL$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Normal Users: $module{'Access Control'}{'List'}{'Normal'} " );
-			}
-			if ( $1 =~ /^BANNED$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, " [+] Banned Users: $module{'Access Control'}{'List'}{'Banned'} " );
-			}
+		## Displays the requested access list
+		if ( $command =~ /^SHOW ACCESS LIST (.+)$/i ) {
+			my $list = $module{'Access Control'}{'Data'}->get_entry_setting("$1",'List','');
+			$kernel->post( bot => privmsg => $echoLocation, " [?] $1: $list " );
 			goto _DONE;
 		}
 	}
@@ -476,7 +367,7 @@ sub on_public {
 			}
 			
 			if ( $1 =~ /^SPEND EXPERIENCE (.+)/i ) {
-				$module{'Contention'}{'Special'} = $1;
+				$module{'Contention'}{'Arguments'} = $1;
 				$module{'Contention'}{'Called'} = 4;
 				goto _DONE;
 			}
@@ -484,7 +375,7 @@ sub on_public {
 			if ( $1 =~ /^ATTACK (.+)/i ) {
 				if ( $module{'Contention'}{'Last Action'} ne $nick ) {
 					$module{'Contention'}{'Last Action'} = $nick;
-					$module{'Contention'}{'Special'} = $1;
+					$module{'Contention'}{'Arguments'} = $1;
 					$module{'Contention'}{'Called'} = 5;
 				} else {
 					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You were the last person to act, give someone else a turn." );
@@ -495,12 +386,17 @@ sub on_public {
 			if ( $1 =~ /^CAST (.+)/i ) {
 				if ( $module{'Contention'}{'Last Action'} ne $nick ) {
 					$module{'Contention'}{'Last Action'} = $nick;
-					$module{'Contention'}{'Special'} = $1;
+					$module{'Contention'}{'Arguments'} = $1;
 					$module{'Contention'}{'Called'} = 6;
 				} else {
 					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You were the last person to act, give someone else a turn." );
 				}
 				goto _DONE;
+			}
+			
+			if ( $1 =~ /^CONSIDER (.+)/i ) {
+				$module{'Contention'}{'Called'} = 7;
+				$module{'Contention'}{'Arguments'} = $1
 			}
 		}
 		
@@ -513,53 +409,22 @@ sub on_public {
 	#########################
 	
 	if ( $control >= -1 ) {
+		
 		## Generic, no topic.
-		if ( $msg =~ /^[!\.]HELP$/i ) {
+		if ( $command =~ /^HELP$/i ) {
 			$kernel->post( bot => privmsg => $echoLocation, " [?] Syntax is HELP <TOPIC> " );
 			$kernel->post( bot => privmsg => $echoLocation, " [?] Topics include PROFILE, CONTENTION, CONTROL, and CONFIG." );
-			$kernel->post( bot => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
-			$kernel->post( bot => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
-			$kernel->post( bot => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
 			goto _DONE;
 		}
 		
 		## Specific, with topic.
-		if ( $msg =~ /^[!\.]HELP (.+)/i ) {
-			## Topic: Profile
-			if ( $1 =~ /^PROFILE$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0): SET, VIEW" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] SET <text>: Sets your profile to <text>" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] VIEW <user>: Reads the profile of <user>" );
-				goto _DONE;
-			}
-
-			## Topic: Game - Contention
-			if ( $1 =~ /^CONTENTION$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] CONTENTION Commands (Level 0)" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] The help entry for\cC5 Contention\x0F has become too large to display here. To view the complete help file for it, browse to http://colstrom.whatthefork.org/software/perl/enbot/modules/readme-contention.txt " );
-				goto _DONE;
-			}
-			
-			## Topic: Control
-			if ( $1 =~ /^CONTROL$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $module{'User Settings'}{'File'}" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $module{'User Settings'}{'File'}" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
-				goto _DONE;
-			}
-			
-			## Topic: Config
-			if ( $1 =~ /^CONFIG$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] CONFIG Commands (Level 5): NONE" );
-				goto _DONE;
-			}
-			goto _DONE;
+		if ( $command =~ /^HELP (.+)/i ) {
+			$module{'Help'}{'Called'} = 1;
+			$module{'Help'}{'Arguments'} = $1;
 		}
 		
 		## Displays the access level of the nick calling it.
-		if ( ( $msg =~ /^[!\.]INFO$/i ) || ( $msg =~ /^[!\.]INFO (.+)/i ) ) {
+		if ( ( $command =~ /^INFO$/i ) || ( $command =~ /^INFO (.+)/i ) ) {
 			my $info_target = $nick;
 			
 			if ( $msg =~ /^[!\.]INFO$/i ) {
@@ -577,27 +442,6 @@ sub on_public {
 			
 			if ( ( $1 =~ /-g$/i ) || ( $1 =~ /--games$/i ) || ( $1 =~ /--games-user (.+)/i ) ) {
 				if ( $msg =~ /--games-user (.+)/i ) { $info_target = $1; }
-				if ( $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_LEVEL',0) >= 1 ) {
-					my $contention_enabled	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_ENABLED',0);
-					my $contention_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_LEVEL',0);
-					my $contention_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_EXP',0);
-					my $contention_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_PATK',0);
-					my $contention_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_PDEF',0);
-					my $contention_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_HP_CURR',0);
-					my $contention_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_HP_MAX',0);
-					my $contention_matk	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_MATK',0);
-					my $contention_mdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_MDEF',0);
-					my $contention_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_MP_CURR',0);
-					my $contention_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$info_target",'Contention_MP_MAX',0);
-
-					$kernel->post( bot => privmsg => $echoLocation, "[?] $info_target " );
-					$kernel->post( bot => privmsg => $echoLocation, "[?] +------------------------+ " );
-					$kernel->post( bot => privmsg => $echoLocation, "[?] | Level (Experience): $contention_level ($contention_exp) " );
-					$kernel->post( bot => privmsg => $echoLocation, "[?] | HP(Max): $contention_hp_curr($contention_hp_max) | Physical ATK/DEF: $contention_patk / $contention_pdef " );
-					if ( $contention_matk > 0 ) { $kernel->post( bot => privmsg => $echoLocation, "[?] | MP(Max): $contention_mp_curr($contention_mp_max) | Magical ATK/DEF: $contention_matk / $contention_mdef " );
-					} else { $kernel->post( bot => privmsg => $echoLocation, "[?] | Does not know magic." ); }
-					$kernel->post( bot => privmsg => $echoLocation, "[?] +------------------------+ " );
-				}
 			}				
 				
 			goto _DONE;
@@ -623,7 +467,7 @@ _DONE:
 
 ########################################
 ## Contention Module by Chris Olstrom ##
-## v0.4.2-4
+## v0.4.2-5
 if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called'} > 0 ) ) {
 	
 	## Installs Contention support in the profile for current user.
@@ -680,7 +524,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 	}
 	
 	if ( $module{'Contention'}{'Called'} == 4 ) {
-		my $choice	= $module{'Contention'}{'Special'};
+		my $choice	= $module{'Contention'}{'Arguments'};
 		my $level	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_LEVEL',1);
 		my $hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_HP_MAX',1);
 		my $exp		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_EXP',0);
@@ -734,8 +578,8 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 	if ( ( $module{'Contention'}{'Called'} == 5 ) || ( $module{'Contention'}{'Called'} == 6 ) ) {
 		my $attacker = $nick;
 		my $defender; my $null;
-		if ( $module{'Contention'}{'Called'} == 5 ) { $defender = $module{'Contention'}{'Special'}; }
-		if ( $module{'Contention'}{'Called'} == 6 ) { ($null,$defender) = split / /, $module{'Contention'}{'Special'},2; }
+		if ( $module{'Contention'}{'Called'} == 5 ) { $defender = $module{'Contention'}{'Arguments'}; }
+		if ( $module{'Contention'}{'Called'} == 6 ) { ($null,$defender) = split / /, $module{'Contention'}{'Arguments'},2; }
 		
 		my $is_ready = 0;
 		my $is_able = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_ENABLED',0);
@@ -842,7 +686,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 					my $grimoire = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_GRIMOIRE',0);
 					
 					## Determine spell being cast, and target.
-					my ( $spell, $target ) = split / /, $module{'Contention'}{'Special'}, 2;
+					my ( $spell, $target ) = split / /, $module{'Contention'}{'Arguments'}, 2;
 					
 					my $target_hp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_CURR',0);
 					my $target_mp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_CURR',0);
@@ -878,9 +722,42 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 		}
 	}
 	
+	if ( $module{'Contention'}{'Called'} == 7 ) {
+		my $target = $module{'Contention'}{'Arguments'};
+		
+		if ( $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_LEVEL',0) >= 1 ) {
+			my $enabled	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_ENABLED',0);
+			my $level	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_LEVEL',0);
+			my $exp		= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_EXP',0);
+			my $patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_PATK',0);
+			my $pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_PDEF',0);
+			my $hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_CURR',0);
+			my $hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_MAX',0);
+			my $matk	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MATK',0);
+			my $mdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MDEF',0);
+			my $mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_CURR',0);
+			my $mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_MAX',0);
+			
+			$kernel->post( bot => privmsg => $echoLocation, "[?] $target" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] +------------------------+" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] | Level (Experience): $level ($exp)" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] | HP(Max): $hp_curr($hp_max) | Physical ATK/DEF: $patk / $pdef" );
+			
+			if ( $matk > 0 ) {
+			$kernel->post( bot => privmsg => $echoLocation, "[?] | MP(Max): $mp_curr($mp_max) | Magical ATK/DEF: $matk / $mdef" );
+			} else {
+			$kernel->post( bot => privmsg => $echoLocation, "[?] | Does not know magic." );
+			}
+			
+			$kernel->post( bot => privmsg => $echoLocation, "[?] +------------------------+ ");
+		} else { 
+			$kernel->post( bot => privmsg => $echoLocation, "[?] $target does not play\cC5 Contention\x0F\." );
+		}
+	}
+	
 	if ( $module{'Contention'}{'Called'} >= 1000 ) {
 		if ( $module{'Contention'}{'Called'} == 1001 ) {
-			my $restore_target = $module{'Contention'}{'Special'};
+			my $restore_target = $module{'Contention'}{'Arguments'};
 			my $restore_hp_amount = $module{'User Settings'}{'Data'}->get_entry_setting("$restore_target",'Contention_HP_MAX',0);
 			my $restore_mp_amount = $module{'User Settings'}{'Data'}->get_entry_setting("$restore_target",'Contention_MP_MAX',0);
 			if ( $restore_hp_amount ne 0 ) {
@@ -902,7 +779,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 
 	## Cleanup
 	$module{'Contention'}{'Called'} = 0;
-	$module{'Contention'}{'Special'} = '';
+	$module{'Contention'}{'Arguments'} = '';
 }
 
 #####################################
@@ -941,6 +818,38 @@ if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0
 	$module{'Profile'}{'Write'}	= '';
 
 	$module{'Profile'}{'Called'}	= 0;
+}
+
+##################################
+## Help Module by Chris Olstrom ##
+if ( ( $module{'Active'}{'Help'} == 1 ) && ( $module{'Help'}{'Called'} > 0 ) ) {
+	if ( $module{'Help'}{'Called'} == 1 ) {
+
+		if ( $module{'Help'}{'Arguments'} =~ /^PROFILE$/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0): SET, VIEW" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] SET <text>: Sets your profile to <text>" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] VIEW <user>: Reads the profile of <user>" );
+		}
+		
+		if ( $module{'Help'}{'Arguments'} =~ /^CONTENTION$/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, "[?] CONTENTION Commands (Level 0)" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] The help entry for\cC5 Contention\x0F has become too large to display here. To view the complete help file for it, browse to\cC12 http://colstrom.whatthefork.org/software/perl/enbot/modules/readme-contention.txt\x0F " );
+		}
+		
+		if ( $module{'Help'}{'Arguments'} =~ /^CONTROL$/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $module{'User Settings'}{'File'}" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $module{'User Settings'}{'File'}" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
+			$kernel->post( bot => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
+		}
+		
+		if ( $module{'Help'}{'Arguments'} = /^COMMANDS$/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
+		}
+	}
 }
 
 ##############################
