@@ -413,7 +413,7 @@ _DONE:
 
 ########################################
 ## Contention Module by Chris Olstrom ##
-## v0.4.7-1
+## v0.4.8-5
 if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Arguments'} ne '' ) ) {
 	my ($called_by,$action) = split /::/,$module{'Contention'}{'Arguments'},2;
 	
@@ -527,7 +527,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] $defender does not have\cC5 Contention\x0F installed, or has it disabled. " );
 				$module{'Contention'}{'Last Action'} = '';
 			} else {
-				if ( ( $attacker eq $defender ) && ( $module{'Contention'}{'Called'} ne 6 ) ) {
+				if ( ( $attacker eq $defender ) && ( $action =~ /^ATTACK/i ) ) {
 					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You may not attack yourself. " );
 					$module{'Contention'}{'Last Action'} = '';
 				} else {
@@ -663,7 +663,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 					if ( $grimoire =~ /$spell/i ) { 
 						if ( $spell =~ /^HEAL$/i ) {
 							my $required_mp = ( $a_mpow );
-							my $restore_hp_amount = int(rand( $a_level * $a_mpow ) *2);
+							my $restore_hp_amount = int(rand( $a_level + $a_mpow ) *2); if ( $restore_hp_amount < $a_mpow ) { $restore_hp_amount = $a_mpow; }
 							if ( $a_mp_curr >= $required_mp ) {
 								$a_mp_curr	-= $required_mp;
 								$target_hp_curr	+= $restore_hp_amount;
@@ -713,6 +713,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 		}
 		elsif ( $choice =~ /^LEVEL$/i ) { $required_exp = ( $player_level * 500 ); $stat_name = 'Level'; }
 		elsif ( $choice =~ /^MAGIC$/i ) { $required_exp = ( $player_level * 500 ); $stat_name = 'Magic'; }
+		elsif ( $choice =~ /^SPELL HEAL$/i ) { $required_exp = ( $player_level * 150 ); $stat_name = 'Heal'; }
 		
 		# Fix for attempting to learn magic at MPOW/RES 0.
 		if ( $required_exp < 0 ) { $required_exp = 9999999999999999; }
@@ -743,6 +744,9 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 			$player_exp -= $required_exp;
 			
 			if ( ( $choice =~ /^MAGIC$/i ) || ( $choice =~ /^SPELL/i ) ) {
+				if ( $choice =~ /^SPELL HEAL$/i ) {
+					$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_GRIMOIRE','HEAL');
+				}
 				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has consumed $required_exp\ experience, and learned $stat_name\! " );
 			} else {
 				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has consumed $required_exp\ experience, and increased their $stat_name\! " );
