@@ -91,6 +91,18 @@ my $restrictLooping = 0;
 my $CONFIG_USER_FILE = 'settings-user.ini';
 my $USER_SETTINGS;
 
+#################
+# Special Flags #
+#################
+	
+my %triggerFlag = (
+	"Load Board"	=> 0,
+	"Save Board"	=> 0,
+	"Load Profile"	=> 0,
+	"Save Profile"	=> 0,
+	"Reload ACL"	=> 0
+);
+	
 ################################
 # Create and Configure the Bot #
 ################################
@@ -172,7 +184,7 @@ sub on_public {
 	## Define default method for command replies
 	
 	my $echoLocation = $nick;
-	
+
 	###########
 	# Logging #
 	###########
@@ -292,18 +304,9 @@ sub on_public {
 				goto _DONE
 			}
 			
-			## This one saves the contents of the whiteboard to a file. 
-			## 'script.noemptylines' is a simple shellscript to strip blank lines, as a 
-			## halfassed workaround for the fact that it sometimes inserts them if you omit 
-			## the 'print board ("\n"), and sometimes doesn't. This way, it appends a 
-			## newline, regardless, and just strips out any excess lines created by this.
 			if ( $1 =~ /^BOARD_SAVE$/i ) {
-				open (board, ">$CONFIG_BOARD_FILE") || die ("Could not open file. $!");
-					print board join("\n",@messageBody);
-					print board ("\n");
-				close (board);
-				system(". ./script.noemptylines ");
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Board saved to $CONFIG_BOARD_FILE. " );
+				$triggerFlag{"Save Board"} = 1;
+				goto _DONE;
 			}
 			
 			## This one populates the whiteboard from a file, and sets the 'next message' 
@@ -327,12 +330,8 @@ sub on_public {
 				goto _DONE;
 			}
 			
-			## Saves user settings to a file.
 			if ( $1 =~ /^USERS_SAVE$/i ) {
-				open (users, ">$CONFIG_USER_FILE") || die ("Could not open file. $!");
-					print users "$USER_SETTINGS";
-				close (users);
-				$kernel->post( bot => privmsg => $echoLocation, " [*] User settings saved to $CONFIG_USER_FILE. " );
+				$triggerFlag{"Save Profile"} = 1;
 				goto _DONE;
 			}
 			
@@ -355,7 +354,33 @@ sub on_public {
 		}
 	}
 	
+	## This one saves the contents of the whiteboard to a file. 
+	## 'script.noemptylines' is a simple shellscript to strip blank lines, as a 
+	## halfassed workaround for the fact that it sometimes inserts them if you omit 
+	## the 'print board ("\n"), and sometimes doesn't. This way, it appends a 
+	## newline, regardless, and just strips out any excess lines created by this.
+	if ( $triggerFlag{"Save Board"} > 0 ) {
+		open (board, ">$CONFIG_BOARD_FILE") || die ("Could not open file. $!");
+			print board join("\n",@messageBody);
+			print board ("\n");
+		close (board);
+		system(". ./script.noemptylines ");
+		if ( $msg =~ /^[!|\.]/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, " [*] Board saved to $CONFIG_BOARD_FILE. " );
+		}
+		$triggerFlag{"Save Board"} = 0;
+	}
 	
+	## Saves user settings to a file.
+	if ( $triggerFlag{"Save Profile"} > 0 ) {
+		open (users, ">$CONFIG_USER_FILE") || die ("Could not open file. $!");
+			print users "$USER_SETTINGS";
+		close (users);
+		if ( $msg =~ /^[!|\.]/i ) {
+			$kernel->post( bot => privmsg => $echoLocation, " [*] User settings saved to $CONFIG_USER_FILE. " );
+		}
+		$triggerFlag{"Save Profile"} = 0;
+	}
 	
 	#####################
 	# HalfOper Commands #
@@ -365,16 +390,34 @@ sub on_public {
 		## Displays the access control lists. I really should modifiy this to be more 
 		## flexible. As it is, it spews the entire list. You should be able to call 
 		## a single section, if you want.
-		if ( $msg =~ /^[!|\.]SHOW ACL$/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Author: $ACL_AUTHOR " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Owner: $ACL_OWNER " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Founder: $ACL_FOUNDER " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] SuperOpers: $ACL_SOP " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Opers: $ACL_AOP " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] HalfOpers: $ACL_HOP " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Voiced Users: $ACL_VOICE " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Normal Users: $ACL_NORMAL " );
-			$kernel->post( bot => privmsg => $echoLocation, " [+] Banned Users: $ACL_BANNED " );
+		if ( $msg =~ /^[!|\.]SHOW ACL (.+)$/i ) {
+			if ( $1 =~ /^AUTHOR$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Author: $ACL_AUTHOR " );
+			}
+			if ( $1 =~ /^OWNER$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Owner: $ACL_OWNER " );
+			}
+			if ( $1 =~ /^FOUNDER$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Founder: $ACL_FOUNDER " );
+			}
+			if ( $1 =~ /^SOP$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] SuperOpers: $ACL_SOP " );
+			}
+			if ( $1 =~ /^AOP$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Opers: $ACL_AOP " );
+			}
+			if ( $1 =~ /^HOP$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] HalfOpers: $ACL_HOP " );
+			}
+			if ( $1 =~ /^VOICE$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Voiced Users: $ACL_VOICE " );
+			}
+			if ( $1 =~ /^NORMAL$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Normal Users: $ACL_NORMAL " );
+			}
+			if ( $1 =~ /^BANNED$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, " [+] Banned Users: $ACL_BANNED " );
+			}
 			goto _DONE;
 		}
 	}
@@ -445,6 +488,7 @@ sub on_public {
 			$messageBody[$messageOffset] = "$1  - $nick";
 			$kernel->post( bot => privmsg => $echoLocation, "Message \#$messageOffset Saved: $messageBody[$messageOffset]" );
 			$messageOffset++;
+			$triggerFlag{"Save Board"} = 1;
 			goto _DONE;
 		}
 		
@@ -454,6 +498,7 @@ sub on_public {
 				$USER_SETTINGS->set_entry_setting("$nick",'PROFILE',"$1");
 				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
 				$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
+				$triggerFlag{"Save Profile"} = 1;
 				goto _DONE;
 			}
 			
