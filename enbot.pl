@@ -413,7 +413,7 @@ _DONE:
 
 ########################################
 ## Contention Module by Chris Olstrom ##
-## v0.4.6-2
+## v0.4.7
 if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Arguments'} ne '' ) ) {
 	my ($called_by,$action) = split /::/,$module{'Contention'}{'Arguments'},2;
 	
@@ -564,11 +564,11 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 			my $d_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_MAX',0);
 			
 			if ( $action =~ /^ATTACK (.+)/i ) {
-				my $a_aroll	= int(rand($a_level * $a_patk +10)); if ( $a_aroll < $a_patk ) { $a_aroll = $a_patk; }
-				my $a_droll	= int(rand($a_level * $a_pdef +10)); if ( $a_droll < $a_pdef ) { $a_droll = $a_pdef; }
+				my $a_aroll	= int(rand($a_level + $a_patk +10)); if ( $a_aroll < $a_patk ) { $a_aroll = $a_patk; }
+				my $a_droll	= int(rand($a_level + $a_pdef +10)); if ( $a_droll < $a_pdef ) { $a_droll = $a_pdef; }
 				
-				my $d_aroll	= int(rand($d_level * $d_patk +10)); if ( $d_aroll < $d_patk ) { $d_aroll = $d_patk; }
-				my $d_droll	= int(rand($d_level * $d_pdef +10)); if ( $d_aroll < $d_pdef ) { $d_aroll = $d_pdef; }
+				my $d_aroll	= int(rand($d_level + $d_patk +10)); if ( $d_aroll < $d_patk ) { $d_aroll = $d_patk; }
+				my $d_droll	= int(rand($d_level + $d_pdef +10)); if ( $d_aroll < $d_pdef ) { $d_aroll = $d_pdef; }
 				
 				my $roll_data	= "\cC4 $a_aroll/$a_droll\x0F vs\cC12 $d_aroll/$d_droll\x0F";
 				
