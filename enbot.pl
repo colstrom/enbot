@@ -35,14 +35,14 @@ use Config::Abstract::Ini;
 # Configure Global Settings #
 #############################
 
-my $CONFIG_NICK		= 'zenBot';
-my $CONFIG_USERNAME	= 'zenBot';
+my $CONFIG_NICK		= 'enBot';
+my $CONFIG_USERNAME	= 'enBot';
 my $CONFIG_IRCNAME	= 'Perl-based IRC Bot';
-my $CONFIG_SERVER	= 'bots.esper.net';
+my $CONFIG_SERVER	= 'dream.esper.net';
 my $CONFIG_PORT		= '5555';
 
 my @CONFIG_CHANNEL;
-	$CONFIG_CHANNEL[0] = '#enBot';
+	$CONFIG_CHANNEL[0] = '#en';
 	$CONFIG_CHANNEL[1] = '#enBot';
 	$CONFIG_CHANNEL[2] = '#enGames';
 
@@ -51,13 +51,13 @@ my @CONFIG_CHANNEL;
 #############################
 
 my @commands;
-	$commands[0] = '(HELP) (INFO) (READ) (SEARCH) (SCRIBBLE) (PROFILE) ';
-	$commands[1] = '(V) (ROT13) ';
-	$commands[2] = '(H) (K) (SHOW ACL) ';
-	$commands[3] = '(O) (B) ';
+	$commands[0] = '(HELP) (INFO) (PROFILE) ';
+	$commands[1] = '(ROT13) ';
+	$commands[2] = '(SHOW ACL) ';
+	$commands[3] = '';
 	$commands[4] = '(CONTROL) ';
 	$commands[5] = '(CONFIG) ';
-	$commands[6] = '(M) (GETTHEFUCKOUTOFHERE) ';
+	$commands[6] = '(M) (SEPPUKU) ';
 
 ########################
 # Module Configuration #
@@ -106,16 +106,6 @@ my %module = ();
 	
 	
 	
-	$module{'Active'}{'Whiteboard'} = 1;
-		my @module_whiteboard_message;
-		$module{'Whiteboard'}{'File'}			= 'db.whiteboard';
-		$module{'Whiteboard'}{'Limit'}			= '10';
-		$module{'Whiteboard'}{'Offset'}			= '0';
-		$module{'Whiteboard'}{'Restrict Looping'}	= 0;
-		$module{'Whiteboard'}{'Message'}		= \@module_whiteboard_message;
-	
-	
-	
 	$module{'Active'}{'User Settings'} = 1;
 		$module{'User Settings'}{'File'}	= 'settings-user.ini';
 		$module{'User Settings'}{'Data'}	= '';
@@ -123,6 +113,9 @@ my %module = ();
 	
 	
 	$module{'Active'}{'Profile'} = 1;
+		$module{'Profile'}{'Called'}		= 0;
+		$module{'Profile'}{'Read'}		= '';
+		$module{'Profile'}{'Write'}		= '';
 	
 ################################
 # Create and Configure the Bot #
@@ -269,7 +262,7 @@ sub on_public {
 	if ( $control >= 666 ) {
 		## Useless function, exists more as a template than anything. Can be used to 
 		## prove ownership of the bot. $ePenis++
-		if ( $msg =~ /^[!|\.] M/i ) {
+		if ( $msg =~ /^[!|\.]M/i ) {
 			$kernel->post( bot => privmsg => $echoLocation, " At your service, MASTER" );
 			goto _DONE;
 		}
@@ -289,19 +282,7 @@ sub on_public {
 	######################
 	
 	if ( $control >= 4 ) {
-		## Alters the maximum number of entries the board will store.
-		if ( $msg =~ /^[!|\.]config BOARD_LIMIT (.+)/i ) {
-			$module{'Whiteboard'}{'Limit'} = $1; 
-			$kernel->post( bot => privmsg => $echoLocation, " [*] CONFIG_BOARD_LIMIT set to $module{'Whiteboard'}{'Limit'}. " );
-			goto _DONE;
-		}
-		
-		## Resets the 'next message' marker to whatever position is specified.
-		if ( $msg =~ /^[!|\.]config BOARD_OFFSET (.+)/i ) {
-			$module{'Whiteboard'}{'Offset'} = $1;
-			$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $module{'Whiteboard'}{'Offset'} / $module{'Whiteboard'}{'Limit'}" );
-			goto _DONE;
-		}
+
 	}
 	
 	
@@ -347,22 +328,6 @@ sub on_public {
 				goto _DONE
 			}
 			
-			if ( $1 =~ /^BOARD_SAVE$/i ) {
-				$module{'Whiteboard'}{'Called'} = 1;
-				$module{'Whiteboard'}{'Save'} = 1;
-			}
-			
-			## This one populates the whiteboard from a file, and sets the 'next message' 
-			## marker to however many entries there are, plus one.
-			if ( $1 =~ /^BOARD_LOAD$/i ) {
-				open (board, $module{'Whiteboard'}{'File'}) || die ("Could not open file. $!"); 
-					$module{'Whiteboard'}{'Message'} = <board>;
-				close (board);
-				$module{'Whiteboard'}{'Offset'} = ($module{'Whiteboard'}{'Message'} - 1);
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Board loaded from $module{'Whiteboard'}{'File'}. " );
-				$kernel->post( bot => privmsg => $echoLocation, " [*] Message Offset to $module{'Whiteboard'}{'Offset'} / $module{'Whiteboard'}{'Limit'}" );
-				goto _DONE;
-			}
 			
 			## WARNING!! This will erase any profiles that have been added, and not saved.
 			## Loads settings for users from a file. Currently, this is only used for 
@@ -376,14 +341,6 @@ sub on_public {
 			if ( $1 =~ /^USERS_SAVE$/i ) {
 				$module{'Profile'}{'Called'} = 1;
 				$module{'Profile'}{'Save'} = 1;
-			}
-			
-			## Erases a message from the whiteboard, and replaces it with a message 
-			## indicating who erased it.
-			if ( $1 =~ /^BOARD_MESSAGE_ERASE (.+)/i ) {
-				$module{'Whiteboard'}{'Message'}[$1] = " [X] Erased by $nick";
-				$kernel->post( bot => privmsg => $echoLocation, "Message $1 erased by $nick" );
-				goto _DONE;
 			}
 			
 			## Calls an external shellscript to generate stats. The reason for this, is to 
@@ -460,25 +417,6 @@ sub on_public {
 	
 	if ( $control >= 0 ) {
 		
-		if ( ( $module{'Active'}{'Whiteboard'} eq 1 ) && ( $command =~ /^Whiteboard (.+)/i ) ) {
-			
-			if ( $1 =~ /^Read (.+)/i ) {
-				$module{'Whiteboard'}{'Called'} = 1;
-				$module{'Whiteboard'}{'Read'} = $1;
-			}
-			
-			if ( $1 =~ /^Scribble (.+)/i ) {
-				$module{'Whiteboard'}{'Called'} = 2;
-				$module{'Whiteboard'}{'Write'} = $1;
-			}
-			
-			if ( $1 =~ /^Search (.+)/i ) {
-				$module{'Whiteboard'}{'Called'} = 3;
-				$module{'Whiteboard'}{'Search'} = $1;
-			}
-			
-		}
-		
 		if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $command =~ /^Profile (.+)/i ) ) {
 			
 			if ( $1 =~ /^View (.+)/i ) {
@@ -504,7 +442,7 @@ sub on_public {
 		## Generic, no topic.
 		if ( $msg =~ /^[!\.]HELP$/i ) {
 			$kernel->post( bot => privmsg => $echoLocation, " [?] Syntax is HELP <TOPIC> " );
-			$kernel->post( bot => privmsg => $echoLocation, " [?] Topics include WHITEBOARD, PROFILE, CONTROL, and CONFIG." );
+			$kernel->post( bot => privmsg => $echoLocation, " [?] Topics include PROFILE, CONTROL, and CONFIG." );
 			$kernel->post( bot => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
 			$kernel->post( bot => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
 			$kernel->post( bot => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
@@ -513,16 +451,6 @@ sub on_public {
 		
 		## Specific, with topic.
 		if ( $msg =~ /^[!\.]HELP (.+)/i ) {
-			## Topic: Whiteboard
-			if ( $1 =~ /^WHITEBOARD$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] Whiteboard Commands (Level 0): SCRIBBLE, READ, SEARCH" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] SCRIBBLE <message>: Writes <message> on the whiteboard, in the next available position (currently $module{'Whiteboard'}{'Offset'} / $module{'Whiteboard'}{'Limit'} )" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] READ <#n>: Reads message number n." );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] READ ALL: Reads all messages." );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] SEARCH <text>: Reads all messages containing <text>." );
-				goto _DONE;
-			}
-			
 			## Topic: Profile
 			if ( $1 =~ /^PROFILE$/i ) {
 				$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0): SET, VIEW" );
@@ -533,9 +461,7 @@ sub on_public {
 			
 			## Topic: Control
 			if ( $1 =~ /^CONTROL$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): BOARD_SAVE, BOARD_LOAD, ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LOAD: Loads the contents of the whiteboard from $module{'Whiteboard'}{'File'}" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_SAVE: Saves the contents of the whiteboard to $module{'Whiteboard'}{'File'}" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $module{'User Settings'}{'File'}" );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $module{'User Settings'}{'File'}" );
 				$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
@@ -545,9 +471,7 @@ sub on_public {
 			
 			## Topic: Config
 			if ( $1 =~ /^CONFIG$/i ) {
-				$kernel->post( bot => privmsg => $echoLocation, "[?] CONFIG Commands (Level 5): BOARD_LIMIT, BOARD_OFFSET" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_LIMIT: Modifies the maximum number of messages on the board. [$module{'Whiteboard'}{'Limit'}]" );
-				$kernel->post( bot => privmsg => $echoLocation, "[?] BOARD_OFFSET: Modifies the current position for new messages on the board. [$module{'Whiteboard'}{'Offset'}]" );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] CONFIG Commands (Level 5): NONE" );
 				goto _DONE;
 			}
 			goto _DONE;
@@ -582,63 +506,6 @@ _DONE:
 # Module Code Blocks #
 ######################
 
-########################################
-## Whiteboard Module by Chris Olstrom ##
-if ( ( $module{'Active'}{'Whiteboard'} eq 1 ) && ( $module{'Whiteboard'}{'Called'} > 0 ) ) {
-
-	## Displays the message matching the number specified.
-	if ( $module{'Whiteboard'}{'Called'} eq 1 ) {
-		$kernel->post( bot => privmsg => $echoLocation, "Reading Message $module{'Whiteboard'}{'Read'}: $module{'Whiteboard'}{'Message'}[$module{'Whiteboard'}{'Read'}]" );
-	}
-	
-	## Writes a message on the whiteboard, in the position indicated by the 
-	## 'next message' marker ($module{'Whiteboard'}{'Offset'}).
-	if ( $module{'Whiteboard'}{'Called'} eq 2 ) {
-		if ( ( ( $module{'Whiteboard'}{'Message'} > $module{'Whiteboard'}{'Limit'} ) || ( $module{'Whiteboard'}{'Offset'} > $module{'Whiteboard'}{'Limit'} ) ) && ( $module{'Whiteboard'}{'Restrict Looping'} = 0 ) ) {
-			$module{'Whiteboard'}{'Offset'} = 0; $module{'Whiteboard'}{'Restrict Looping'} = 1;
-		}
-		if ( $module{'Whiteboard'}{'Offset'} eq ( $module{'Whiteboard'}{'Limit'} - 1 ) ) { $module{'Whiteboard'}{'Restrict Looping'} = 0; }
-		
-		$module{'Whiteboard'}{'Message'}[$module{'Whiteboard'}{'Offset'}] = "$module{'Whiteboard'}{'Write'} - $nick";
-		$kernel->post( bot => privmsg => $echoLocation, "Message \#$module{'Whiteboard'}{'Offset'} Saved: $module{'Whiteboard'}{'Message'}[$module{'Whiteboard'}{'Offset'}]" );
-		$module{'Whiteboard'}{'Offset'}++;
-		$module{'Whiteboard'}{'Save'} = 1;
-	}
-
-	## Searched the whiteboard for any messages matching a simple /query/ regex.
-	## There is a known bug here, that may crash the bot, if the query ends with 
-	## a '\'. This causes the regex to be read as /query\/, which escapes the 
-	## regex, and causes the bot to die.
-	if ( $module{'Whiteboard'}{'Called'} eq 3 ) {
-		for (my $iCounter = 0; $iCounter < $module{'Whiteboard'}{'Message'}; $iCounter++) {
-			if ($module{'Whiteboard'}{'Message'}[$iCounter] =~ /$module{'Whiteboard'}{'Search'}/) {
-				$kernel->post( bot => privmsg => $echoLocation, "Reading Message $iCounter: $module{'Whiteboard'}{'Message'}[$iCounter]" );
-			}
-		}
-	}
-
-	## This one saves the contents of the whiteboard to a file. 
-	## 'script.noemptylines' is a simple shellscript to strip blank lines, as a 
-	## halfassed workaround for the fact that it sometimes inserts them if you omit 
-	## the 'print board ("\n"), and sometimes doesn't. This way, it appends a 
-	## newline, regardless, and just strips out any excess lines created by this.
-	if ( $module{'Whiteboard'}{'Save'} eq 1 ) {
-		open (board, ">$module{'Whiteboard'}{'File'}") || die ("Could not open file. $!");
-			print board join("\n",$module{'Whiteboard'}{'Message'});
-			print board ("\n");
-		close (board);
-		system(". ./script.noemptylines ");
-		if ( $msg =~ /^[!|\.]/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, " [*] Board saved to $module{'Whiteboard'}{'File'}. " );
-		}
-		$module{'Whiteboard'}{'Save'} = 0;
-	}
-
-	$module{'Whiteboard'}{'Called'} = 0;
-}
-
-
-
 #####################################
 ## Profile Module by Chris Olstrom ##
 if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0 ) ) {
@@ -647,13 +514,13 @@ if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0
 	## to spew errors to console. Doesn't crash, just errors. This happens if 
 	## someone attempts to view a nonexistant profile.
 	if ( $module{'Profile'}{'Called'} eq 1 ) {
-		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$1","PROFILE","Profile Not Set");
-		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $1: $tmpBuffer" );
+		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$module{'Profile'}{'Read'}","PROFILE","Profile Not Set");
+		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $module{'Profile'}{'Read'}: $tmpBuffer" );
 	}
 	
 	## Sets the profile for the user calling it to whatever they specify.
 	if ( $module{'Profile'}{'Called'} eq 2 ) {
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'PROFILE',"$1");
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'PROFILE',"$module{'Profile'}{'Write'}");
 		my $tmpBuffer = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
 		$kernel->post( bot => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
 		$module{'Profile'}{'Save'} = 1;
@@ -669,8 +536,12 @@ if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0
 		}
 		$module{'Profile'}{'Save'} = 0;
 	}
+	
+	## Cleanup
+	$module{'Profile'}{'Read'}	= '';
+	$module{'Profile'}{'Write'}	= '';
 
-	$module{'Profile'}{'Called'} = 0;
+	$module{'Profile'}{'Called'}	= 0;
 }
 
 ##############################
