@@ -48,7 +48,7 @@ sub LogMessage {
 	my($kernel,$moduleSettings,$logFrom,$logTo,$message) = @_;
 	my $logChannels = $moduleSettings->get_entry_setting('Logging','Channels','');
 	
-	if ( $logFrom =~ /$logChannels/i ) {										# Are we supposed to be logging this channel?
+	if ( $logChannels =~ /$logFrom/i ) {										# Are we supposed to be logging this channel?
 		if ( $logTo eq 'console' ) {											# Log to console?
 			print "$message\n";													# Log to console, for maximum flexibility. Allows total log manipulation by the user, should they so desire. I tend to run the bot with... 'run ./enbot.pl >> /home/username/log/enbot &'
 		}
