@@ -413,7 +413,7 @@ _DONE:
 
 ########################################
 ## Contention Module by Chris Olstrom ##
-## v0.4.4-6
+## v0.4.6-2
 if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Arguments'} ne '' ) ) {
 	my ($called_by,$action) = split /::/,$module{'Contention'}{'Arguments'},2;
 	
@@ -508,6 +508,186 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 		}
 	}
 	
+	if ( ( $action =~ /^ATTACK (.+)/i ) || ( $action =~ /^CAST (.+)/i ) ) {
+		my $attacker = $nick;
+		my $defender;
+		my $null;
+		if ( $action =~ /^ATTACK (.+)/i ) { $defender = $1; }
+		if ( $action =~ /^CAST (.+)/i ) { ($null,$defender) = split / /, $1,2; }
+		
+		my $is_ready = 0;
+		my $is_able = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_ENABLED',0);
+		my $is_willing = $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_ENABLED',0);
+		
+		if ( $is_able == 0 ) {
+			$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] Your account does not have\cC5 Contention\x0F installed, or it has been disabled. " );
+			$module{'Contention'}{'Last Action'} = '';
+		} else {
+			if ( $is_willing == 0 ) {
+				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] $defender does not have\cC5 Contention\x0F installed, or has it disabled. " );
+				$module{'Contention'}{'Last Action'} = '';
+			} else {
+				if ( ( $attacker eq $defender ) && ( $module{'Contention'}{'Called'} ne 6 ) ) {
+					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You may not attack yourself. " );
+					$module{'Contention'}{'Last Action'} = '';
+				} else {
+					$is_ready = 1;
+				}
+			}
+		}
+		
+		if ( $is_ready == 1 ) {
+			my $a_name	= "\cC4$attacker\x0F";
+			my $a_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_LEVEL',1);
+			my $a_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_EXP',0);
+			my $a_cash	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_CASH',0);
+			my $a_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_PATK',1);
+			my $a_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_PDEF',1);
+			my $a_mpow	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MPOW',1);
+			my $a_mres	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MRES',1);
+			my $a_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_HP_CURR',50);
+			my $a_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_HP_MAX',50);
+			my $a_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MP_CURR',0);
+			my $a_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MP_MAX',0);
+			
+			my $d_name	= "\cC12$defender\x0F";
+			my $d_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_LEVEL',1);
+			my $d_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_EXP',0);
+			my $d_cash	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_CASH',0);
+			my $d_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_PATK',1);
+			my $d_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_PDEF',1);
+			my $d_mpow	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MPOW',1);
+			my $d_mres	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MRES',1);
+			my $d_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_HP_CURR',50);
+			my $d_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_HP_MAX',50);
+			my $d_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_CURR',0);
+			my $d_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_MAX',0);
+			
+			if ( $action =~ /^ATTACK (.+)/i ) {
+				my $a_aroll	= int(rand($a_level * $a_patk +10)); if ( $a_aroll < $a_patk ) { $a_aroll = $a_patk; }
+				my $a_droll	= int(rand($a_level * $a_pdef +10)); if ( $a_droll < $a_pdef ) { $a_droll = $a_pdef; }
+				
+				my $d_aroll	= int(rand($d_level * $d_patk +10)); if ( $d_aroll < $d_patk ) { $d_aroll = $d_patk; }
+				my $d_droll	= int(rand($d_level * $d_pdef +10)); if ( $d_aroll < $d_pdef ) { $d_aroll = $d_pdef; }
+				
+				my $roll_data	= "\cC4 $a_aroll/$a_droll\x0F vs\cC12 $d_aroll/$d_droll\x0F";
+				
+				if ( $defender eq $CONFIG_NICK ) { $module{'Contention'}{'Last Action'} = ''; }
+				
+				if ( $a_aroll > $d_droll ) {
+					my $damage = $a_aroll - $d_droll; $d_hp_curr = $d_hp_curr - $damage;
+					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, "[G]$roll_data | $a_name strikes $d_name, dealing $damage points of damage. $d_name has\cC12 [$d_hp_curr/$d_hp_max]\x0F remaining." );
+					if ( $d_hp_curr <= 0 ) { 
+						my $rewardExp = int( $d_level / $a_level * 25 * $a_level );
+						if ( $rewardExp < 1 ) { $rewardExp = 1; }
+						my $totalExp = $a_exp + $rewardExp;
+						my $rewardCash = int ( rand( 100 ) ); $a_cash += $rewardCash;
+						$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_EXP',$totalExp);
+						$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_CASH',$a_cash);
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name defeats $d_name in battle, gaining\cC13 $rewardExp Experience Points\x0F. $a_name has been awarded $rewardCash Shiny Stones." );
+						
+						if ( $totalExp > ( $a_level * 500 * 1.5 ) ) {
+							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name has passed the experience threshold, forcing level gain..." );
+							$nick = $attacker; $action = 'CONTENTION SPEND EXPERIENCE LEVEL';
+						}
+						
+						my $exp_penalty = int ( $rewardExp / 4 );
+						my $totalExp_Remaining = $d_exp - $exp_penalty;
+						if ( $totalExp_Remaining < 0 ) { $totalExp_Remaining = 0; }
+						$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_EXP',$totalExp_Remaining);
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name is defeated in combat, and loses \cC13 $exp_penalty Experience Points\x0F." );
+						
+						$a_hp_curr = $a_hp_max; $a_mp_curr = $a_mp_max;
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name has been restored to\cC9 full HP/MP\x0F\!" );
+						$d_hp_curr = $d_hp_max; $d_mp_curr = $d_mp_max;
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name has been restored to\cC9 full HP/MP\x0F\!" );
+					}
+				} elsif ( ( $a_aroll < $d_droll ) && ( $defender ne $CONFIG_NICK ) ) {
+					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $d_name evades $a_name\'s strike. " );
+				} else {
+					if ( $d_aroll > $a_droll ) {
+						my $damage = $d_aroll - $a_droll; $a_hp_curr = $a_hp_curr - $damage;
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $d_name dodges, and counterattacks $a_name, dealing $damage points of damage. $a_name has\cC4 [$a_hp_curr/$a_hp_max]\x0F HP remaining." );
+						if ( $a_hp_curr <= 0 ) { 
+							my $rewardExp = int( ( $a_level / $d_level ) * 25 * $d_level );
+							if ( $rewardExp < 1 ) { $rewardExp = 1; }
+							my $totalExp = $d_exp + $rewardExp;
+							my $rewardCash = int ( rand( ($a_level/$d_level) * 100 ) ); $d_cash += $rewardCash;
+							$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_EXP',$totalExp);
+							$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_CASH',$d_cash);
+							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name defeats $a_name in battle, gaining\cC11 $rewardExp Experience Points\x0F. $d_name has been awarded $rewardCash Shiny Stones!" );
+							
+							if ( $totalExp > ( $d_level * 500 * 1.5 ) ) {
+								$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name has passed the experience threshold, forcing level gain..." );
+								$nick = $defender; $action = 'CONTENTION SPEND EXPERIENCE LEVEL';
+							}
+							
+							my $exp_penalty = int ( $rewardExp / 4 );
+							my $totalExp_Remaining = $a_exp - $exp_penalty;
+							if ( $totalExp_Remaining < 0 ) { $totalExp_Remaining = 0; }
+							$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_EXP',$totalExp_Remaining);
+							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name is defeated in combat, and loses \cC13 $exp_penalty Experience Points\x0F." );
+							
+							$a_hp_curr = $a_hp_max; $a_mp_curr = $a_mp_max;
+							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name has been restored to\cC9 full HP/MP\x0F\!" );
+							$d_hp_curr = $d_hp_max; $d_mp_curr = $d_mp_max;
+							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name has been restored to\cC9 full HP/MP\x0F!" );
+						}
+					} elsif ( $d_aroll < $a_droll ) {
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $d_name evades, and attempts to counter $a_name, but fails. " );
+					} else {
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $a_name and $d_name lose track of each other for one round. No damage dealt, none taken. " );
+					}
+				}
+				
+				$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_HP_CURR',$a_hp_curr);
+				$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_HP_CURR',$d_hp_curr);
+				$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_MP_CURR',$a_mp_curr);
+				$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_MP_CURR',$d_mp_curr);
+			}
+			
+			if ( $action =~ /^CAST (.+)/i ) {
+				if ( $a_mpow > 0 ) { 
+					## Get collection of known spells.
+					my $grimoire = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_GRIMOIRE',0);
+					
+					## Determine spell being cast, and target.
+					my ( $spell, $target ) = split / /,$1, 2;
+					
+					my $target_hp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_CURR',0);
+					my $target_mp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_CURR',0);
+					my $target_hp_max = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_MAX',0);
+					my $target_mp_max = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_MAX',0);
+					
+					## Is the spell being cast, known?
+					if ( $grimoire =~ /$spell/i ) { 
+						if ( $spell =~ /^HEAL$/i ) {
+							my $required_mp = ( $a_mpow );
+							my $restore_hp_amount = int(rand( $a_level * $a_mpow ) *2);
+							if ( $a_mp_curr >= $required_mp ) {
+								$a_mp_curr	-= $required_mp;
+								$target_hp_curr	+= $restore_hp_amount;
+								if ( $target_hp_curr > $target_hp_max ) { $target_hp_curr = $target_hp_max; }
+								$module{'User Settings'}{'Data'}->set_entry_setting("$target",'Contention_HP_CURR',$target_hp_curr);
+								$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] ** $a_name says a few words, and performs some elaborate gestures. A wave of relaxation rushes over $target, and they regain\cC9 $restore_hp_amount HP\x0F\!" );
+							} else {
+								$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not have enough MP to do that. " );
+								$module{'Contention'}{'Last Action'} = '';
+							}
+						}
+					} else {
+						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not know that spell. " );
+						$module{'Contention'}{'Last Action'} = '';
+					}					
+					$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_MP_CURR',$a_mp_curr);
+				} else {
+					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not know magic. " );
+					$module{'Contention'}{'Last Action'} = '';
+				}
+			}
+		}
+	}
+	
 	if ( $action =~ /^SPEND EXPERIENCE (.+)$/i ) {
 		my $choice	= $1;
 		my $player_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_LEVEL',1);
@@ -588,161 +768,6 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Argume
 		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_MRES',$player_mres);
 		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_HP_MAX',$player_hp_max);
 		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_MP_MAX',$player_mp_max);
-
-	}
-	
-	if ( ( $action =~ /^ATTACK (.+)/i ) || ( $action =~ /^CAST (.+)/i ) ) {
-		my $attacker = $nick;
-		my $defender;
-		my $null;
-		if ( $action =~ /^ATTACK (.+)/i ) { $defender = $1; }
-		if ( $action =~ /^CAST (.+)/i ) { ($null,$defender) = split / /, $1,2; }
-		
-		my $is_ready = 0;
-		my $is_able = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_ENABLED',0);
-		my $is_willing = $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_ENABLED',0);
-		
-		if ( $is_able == 0 ) {
-			$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] Your account does not have\cC5 Contention\x0F installed, or it has been disabled. " );
-			$module{'Contention'}{'Last Action'} = '';
-		} else {
-			if ( $is_willing == 0 ) {
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] $defender does not have\cC5 Contention\x0F installed, or has it disabled. " );
-				$module{'Contention'}{'Last Action'} = '';
-			} else {
-				if ( ( $attacker eq $defender ) && ( $module{'Contention'}{'Called'} ne 6 ) ) {
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You may not attack yourself. " );
-					$module{'Contention'}{'Last Action'} = '';
-				} else {
-					$is_ready = 1;
-				}
-			}
-		}
-		
-		if ( $is_ready == 1 ) {
-			my $a_name	= "\cC4$attacker\x0F";
-			my $a_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_LEVEL',1);
-			my $a_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_EXP',0);
-			my $a_cash	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_CASH',0);
-			my $a_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_PATK',1);
-			my $a_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_PDEF',1);
-			my $a_mpow	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MPOW',1);
-			my $a_mres	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MRES',1);
-			my $a_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_HP_CURR',50);
-			my $a_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_HP_MAX',50);
-			my $a_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MP_CURR',0);
-			my $a_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_MP_MAX',0);
-			
-			my $d_name	= "\cC12$defender\x0F";
-			my $d_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_LEVEL',1);
-			my $d_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_EXP',0);
-			my $d_cash	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_CASH',0);
-			my $d_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_PATK',1);
-			my $d_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_PDEF',1);
-			my $d_mpow	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MPOW',1);
-			my $d_mres	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MRES',1);
-			my $d_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_HP_CURR',50);
-			my $d_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_HP_MAX',50);
-			my $d_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_CURR',0);
-			my $d_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_MAX',0);
-			
-			if ( $action =~ /^ATTACK (.+)/i ) {
-				my $a_aroll	= int(rand($a_level * $a_patk +10)+$a_patk);
-				my $a_droll	= int(rand($a_level * $a_pdef +10)+$a_pdef);
-				
-				my $d_aroll	= int(rand($d_level * $d_patk +10)+$d_patk);
-				my $d_droll	= int(rand($d_level * $d_pdef +10)+$d_pdef);
-				
-				my $roll_data	= "\cC4 $a_aroll/$a_droll\x0F vs\cC12 $d_aroll/$d_droll\x0F";
-				
-				if ( $defender eq $CONFIG_NICK ) { $module{'Contention'}{'Last Action'} = ''; }
-				
-				if ( $a_aroll > $d_droll ) {
-					my $damage = $a_aroll - $d_droll; $d_hp_curr = $d_hp_curr - $damage;
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, "[G]$roll_data | $a_name strikes $d_name, dealing $damage points of damage. $d_name has\cC12 [$d_hp_curr/$d_hp_max]\x0F remaining." );
-					if ( $d_hp_curr <= 0 ) { 
-						my $rewardExp = int( $d_level / $a_level * 25 * $a_level );
-						if ( $rewardExp < 1 ) { $rewardExp = 1; }
-						my $totalExp = $a_exp + $rewardExp;
-						my $rewardCash = int ( rand( 100 ) ); $a_cash += $rewardCash;
-						$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_EXP',$totalExp);
-						$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_CASH',$a_cash);
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name defeats $d_name in battle, gaining\cC13 $rewardExp Experience Points\x0F. $a_name has been awarded $rewardCash Shiny Stones." );
-						$a_hp_curr = $a_hp_max; $a_mp_curr = $a_mp_max;
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name has been restored to\cC9 full HP/MP\x0F\!" );
-						$d_hp_curr = $d_hp_max; $d_mp_curr = $d_mp_max;
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name has been restored to\cC9 full HP/MP\x0F\!" );
-					}
-				} elsif ( ( $a_aroll < $d_droll ) && ( $defender ne $CONFIG_NICK ) ) {
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $d_name evades $a_name\'s strike. " );
-				} else {
-					if ( $d_aroll > $a_droll ) {
-						my $damage = $d_aroll - $a_droll; $a_hp_curr = $a_hp_curr - $damage;
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $d_name dodges, and counterattacks $a_name, dealing $damage points of damage. $a_name has\cC4 [$a_hp_curr/$a_hp_max]\x0F HP remaining." );
-						if ( $a_hp_curr <= 0 ) { 
-							my $rewardExp = int( ( $a_level / $d_level ) * 25 * $d_level );
-							if ( $rewardExp < 1 ) { $rewardExp = 1; }
-							my $totalExp = $d_exp + $rewardExp;
-							my $rewardCash = int ( rand( ($a_level/$d_level) * 100 ) ); $d_cash += $rewardCash;
-							$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_EXP',$totalExp);
-							$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_CASH',$d_cash);
-							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name defeats $a_name in battle, gaining\cC11 $rewardExp Experience Points\x0F. $d_name has been awarded $rewardCash Shiny Stones!" );
-							$a_hp_curr = $a_hp_max; $a_mp_curr = $a_mp_max;
-							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $a_name has been restored to\cC9 full HP/MP\x0F\!" );
-							$d_hp_curr = $d_hp_max; $d_mp_curr = $d_mp_max;
-							$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $d_name has been restored to\cC9 full HP/MP\x0F!" );
-						}
-					} elsif ( $d_aroll < $a_droll ) {
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $d_name evades, and attempts to counter $a_name, but fails. " );
-					} else {
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G]$roll_data | $a_name and $d_name lose track of each other for one round. No damage dealt, none taken. " );
-					}
-				}
-				
-				$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_HP_CURR',$a_hp_curr);
-				$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_HP_CURR',$d_hp_curr);
-			}
-			
-			if ( $action =~ /^CAST (.+)/i ) {
-				if ( $a_mpow > 0 ) { 
-					## Get collection of known spells.
-					my $grimoire = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_GRIMOIRE',0);
-					
-					## Determine spell being cast, and target.
-					my ( $spell, $target ) = split / /,$1, 2;
-					
-					my $target_hp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_CURR',0);
-					my $target_mp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_CURR',0);
-					my $target_hp_max = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_MAX',0);
-					my $target_mp_max = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_MAX',0);
-					
-					## Is the spell being cast, known?
-					if ( $grimoire =~ /$spell/i ) { 
-						if ( $spell =~ /^HEAL$/i ) {
-							my $required_mp = ( $a_mpow );
-							my $restore_hp_amount = int(rand( $a_level * $a_mpow ) *2);
-							if ( $a_mp_curr >= $required_mp ) {
-								$a_mp_curr	-= $required_mp;
-								$target_hp_curr	+= $restore_hp_amount;
-								if ( $target_hp_curr > $target_hp_max ) { $target_hp_curr = $target_hp_max; }
-								$module{'User Settings'}{'Data'}->set_entry_setting("$target",'Contention_HP_CURR',$target_hp_curr);
-								$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] ** $a_name says a few words, and performs some elaborate gestures. A wave of relaxation rushes over $target, and they regain\cC9 $restore_hp_amount HP\x0F\!" );
-							} else {
-								$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not have enough MP to do that. " );
-								$module{'Contention'}{'Last Action'} = '';
-							}
-						}
-					} else {
-						$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not know that spell. " );
-						$module{'Contention'}{'Last Action'} = '';
-					}					
-					$module{'User Settings'}{'Data'}->set_entry_setting("$attacker",'Contention_MP_CURR',$a_mp_curr);
-				} else {
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not know magic. " );
-					$module{'Contention'}{'Last Action'} = '';
-				}
-			}
-		}
 	}
 	
 	if ( $action =~ /CONSIDER (.+)/i ) {
