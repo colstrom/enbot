@@ -252,16 +252,8 @@ sub on_public {
 	
 	if ( $control >= 4 ) {
 		if ( ( $module{'Active'}{'Contention'} eq 1 ) && ( $channel eq $module{'Contention'}{'Channel'} ) &&( $command =~ /^CONTENTION (.+)/i ) ) {
-			if ( $1 =~ /^RESTORE (.+)/i ) {
-				$module{'Contention'}{'Arguments'} = $1;
-				$module{'Contention'}{'Called'} = 1001;
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^NEW ROUND$/i ) {
-				$module{'Contention'}{'Called'} = 1002;
-				goto _DONE;
-			}
+			$module{'Contention'}{'Arguments'} = "GM::$1";
+			goto _DONE;
 		}			
 	}
 	
@@ -346,59 +338,8 @@ sub on_public {
 			goto _DONE;
 		}
 		
-		if ( ( $module{'Active'}{'Contention'} eq 1 ) && ( $channel eq $module{'Contention'}{'Channel'} ) && ( $command =~ /^CONTENTION (.+)/i ) ) {
-			if ( $1 =~ /^INSTALL$/i ) {
-				$module{'Contention'}{'Called'} = 1;
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^TOGGLE$/i ) {
-				$module{'Contention'}{'Called'} = 2;
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^REST$/i ) {
-				if ( $module{'Contention'}{'Last Action'} ne $nick ) {
-					$module{'Contention'}{'Last Action'} = $nick;
-					$module{'Contention'}{'Called'} = 3;
-				} else {
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You were the last person to act, give someone else a turn." );
-				}
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^SPEND EXPERIENCE (.+)/i ) {
-				$module{'Contention'}{'Arguments'} = $1;
-				$module{'Contention'}{'Called'} = 4;
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^ATTACK (.+)/i ) {
-				if ( $module{'Contention'}{'Last Action'} ne $nick ) {
-					$module{'Contention'}{'Last Action'} = $nick;
-					$module{'Contention'}{'Arguments'} = $1;
-					$module{'Contention'}{'Called'} = 5;
-				} else {
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You were the last person to act, give someone else a turn." );
-				}
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^CAST (.+)/i ) {
-				if ( $module{'Contention'}{'Last Action'} ne $nick ) {
-					$module{'Contention'}{'Last Action'} = $nick;
-					$module{'Contention'}{'Arguments'} = $1;
-					$module{'Contention'}{'Called'} = 6;
-				} else {
-					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You were the last person to act, give someone else a turn." );
-				}
-				goto _DONE;
-			}
-			
-			if ( $1 =~ /^CONSIDER (.+)/i ) {
-				$module{'Contention'}{'Called'} = 7;
-				$module{'Contention'}{'Arguments'} = $1
-			}
+		if ( ( $module{'Active'}{'Contention'} eq 1 ) && ( $command =~ /^CONTENTION (.+)/i ) ){
+			$module{'Contention'}{'Arguments'} = "PLAYER::$1";;
 		}
 		
 	}
@@ -469,12 +410,23 @@ _DONE:
 ########################################
 ## Contention Module by Chris Olstrom ##
 ## v0.4.2-5
-if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called'} > 0 ) ) {
+if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Arguments'} ne '' ) ) {
+	my ($called_by,$action) = split /::/,$module{'Contention'}{'Arguments'},2;
+	
+	if ( $module{'Contention'}{'Last Action'} ne $nick ) {
+		if ( ( $action =~ /^ATTACK/i ) || ( $action =~ /^CAST/i ) || ( $action =~ /^REST/i ) ) {
+			$module{'Contention'}{'Last Action'} = $nick;
+		}
+	} elsif ( ( $action =~ /^CONSIDER/i ) || ( $action =~ /^TOGGLE$/i ) || ( $action =~ /^SPEND EXPERIENCE/i ) ) {
+	} else {
+		$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] You were the last person to act, give someone else a turn." );
+		$action = 'NULL';
+	}
+
 	
 	## Installs Contention support in the profile for current user.
-	if ( $module{'Contention'}{'Called'} == 1 ) {
-		my $is_installed = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_LEVEL',0);
-		if ( $is_installed == 0 ) {
+	if ( $action =~ /^INSTALL$/i ) {
+		if ( $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_LEVEL',0) == 0 ) {
 			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_ENABLED',1);
 			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_LEVEL',1);
 			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_EXP',0);
@@ -493,7 +445,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 		}
 	}
 	
-	if ( $module{'Contention'}{'Called'} == 2 ) {
+	if ( $action =~ /^TOGGLE$/i ) {
 		if ( $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_ENABLED',0) == 0 ) {
 			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_ENABLED',1);
 			$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] $nick has enabled\cC5 Contention,\x0F they are now able to attack, and be attacked. " );
@@ -503,7 +455,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 		}
 	}
 	
-	if ( $module{'Contention'}{'Called'} == 3 ) {
+	if ( $action =~ /^REST$/i ) {
 		my $restore_hp_amount = 0;
 		my $hp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_HP_CURR',0);
 		my $hp_max = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_HP_MAX',0);
@@ -524,63 +476,90 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 		}
 	}
 	
-	if ( $module{'Contention'}{'Called'} == 4 ) {
-		my $choice	= $module{'Contention'}{'Arguments'};
-		my $level	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_LEVEL',1);
-		my $hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_HP_MAX',1);
-		my $exp		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_EXP',0);
-		my $patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_PATK',1);
-		my $pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_PDEF',1);
+	if ( $action =~ /^SPEND EXPERIENCE (.+)$/i ) {
+		my $choice	= $1;
+		my $player_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_LEVEL',1);
+		my $player_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_HP_MAX',1);
+		my $player_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_MP_MAX',0);
+		my $player_exp		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_EXP',0);
+		my $player_patk		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_PATK',1);
+		my $player_pdef		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_PDEF',1);
+		my $player_mpow		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_MPOW',0);
+		my $player_mres		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Contention_MRES',0);
+		my $required_exp	= 0;
+		my $levelup_hp		= 0;
+		my $levelup_mp		= 0;
+		my $stat_name		= '';
 		
-		if ( $choice =~ /^PATK$/i ) {
-			my $required_exp = ( $patk * 100 );
-			if ( $exp >= $required_exp ) {
-				$patk = $patk + 1;
-				$exp = $exp - $required_exp;
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has increased their Physical Attack to $patk\! " );
+		if ( $choice =~ /^PATK$/i ) { $required_exp = ( $player_patk * 100 ); $stat_name = 'Physical Attack'; }
+		elsif ( $choice =~ /^PDEF$/i ) { $required_exp = ( $player_pdef * 100 ); $stat_name = 'Physical Defense'; }
+		elsif ( $choice =~ /^MPOW$/i ) { $required_exp = ( $player_mpow * 100 ); $stat_name = 'Magical Power'; }
+		elsif ( $choice =~ /^MRES$/i ) { $required_exp = ( $player_mres * 100 ); $stat_name = 'Magic Resistance'; }
+		elsif ( $choice =~ /^LEVEL$/i ) { $required_exp = ( $player_level * 500 ); $stat_name = 'Level'; }
+		elsif ( $choice =~ /^MAGIC$/i ) { $required_exp = ( $player_level * 500 ); $stat_name = 'Magic'; }
+		else { 	$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!] Try specifying a REAL stat next time. " ); }
+		
+		# Fix for attempting to learn magic at MPOW/RES 0.
+		if ( $required_exp < 100 ) { $required_exp = 100; }
+		
+		if ( ( $player_exp >= $required_exp ) && ( $stat_name ne '' ) ) {
+			if ( $choice =~ /^PATK$/i ) { $player_patk += 1; }
+			if ( $choice =~ /^PDEF$/i ) { $player_pdef += 1; }
+			if ( $player_mpow > 0 ) { 
+				if ( $choice =~ /^MPOW$/i ) { $player_mpow += 1; }
+				if ( $choice =~ /^MRES$/i ) { $player_mres += 1; }
 			} else {
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not have enough Experience to do that. " );
+				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!] You do not know magic. " );
+			}
+			if ( $choice =~ /^MAGIC$/i ) {
+				if ( $player_mpow < 1 ) {
+					$player_mpow += 1;
+				} else {
+					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!] You already know magic. " );
+				}
+			}
+			if ( $choice =~ /^LEVEL$/i ) { $player_level += 1;
+				$levelup_hp = ( int(rand(10) + 5) ); $player_hp_max += $levelup_hp;
+				if ( $player_mpow > 0 ) { $levelup_mp = ( int(rand(5) + $player_mres) ); $player_mp_max += $levelup_mp; }
+			}
+			
+			$player_exp -= $required_exp;
+			
+			if ( ( $choice =~ /^MAGIC$/i ) || ( $choice =~ /^SPELL/i ) ) {
+				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has consumed $required_exp\ experience, and learned $stat_name\! " );
+			} else {
+				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has consumed $required_exp\ experience, and increased their $stat_name\! " );
+			}
+			
+			if ( $choice =~ /^LEVEL$/i ) {
+				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has gained $levelup_hp\! " );
+				if ( $player_mpow > 0 ) {
+					$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has gained $levelup_mp\! " );
+				}
+			}
+		} else {
+			if ( $stat_name ne '' ) {
+				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!] You do not have enough Experience to do that. " );
 			}
 		}
 		
-		if ( $choice =~ /^PDEF$/i ) {
-			my $required_exp =  ( $pdef * 100 );
-			if ( $exp >= $required_exp ) {
-				$pdef = $pdef + 1;
-				$exp = $exp - $required_exp;
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has increased their Physical Defense to $pdef\! " );
-			} else {
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not have enough Experience to do that. " );
-			}
-		}
-		
-		if ( $choice =~ /^LEVEL$/i ) {
-			my $required_exp = ( $level * 1000 );
-			if ( $exp >= $required_exp ) {
-				$level = $level + 1;
-				$exp = $exp - $required_exp;
-				my $hp_gain = rand(10) +5;
-				$hp_max = $hp_max + $hp_gain;
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has increased their Level to $level\! " );
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $nick has gained $hp_gain HP! " );
-			} else {
-				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [!G] You do not have enough Experience to do that. " );
-			}
-		}
-		
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_LEVEL',$level);
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_EXP',$exp);
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_PATK',$patk);
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_PDEF',$pdef);
-		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_HP_MAX',$hp_max);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_LEVEL',$player_level);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_EXP',$player_exp);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_PATK',$player_patk);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_PDEF',$player_pdef);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_MPOW',$player_mpow);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_MRES',$player_mres);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_HP_MAX',$player_hp_max);
+		$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Contention_MP_MAX',$player_mp_max);
 
 	}
 	
-	if ( ( $module{'Contention'}{'Called'} == 5 ) || ( $module{'Contention'}{'Called'} == 6 ) ) {
+	if ( ( $action =~ /^ATTACK (.+)/i ) || ( $action =~ /^CAST (.+)/i ) ) {
 		my $attacker = $nick;
-		my $defender; my $null;
-		if ( $module{'Contention'}{'Called'} == 5 ) { $defender = $module{'Contention'}{'Arguments'}; }
-		if ( $module{'Contention'}{'Called'} == 6 ) { ($null,$defender) = split / /, $module{'Contention'}{'Arguments'},2; }
+		my $defender;
+		my $null;
+		if ( $action =~ /^ATTACK (.+)/i ) { $defender = $1; }
+		if ( $action =~ /^CAST (.+)/i ) { ($null,$defender) = split / /, $1,2; }
 		
 		my $is_ready = 0;
 		my $is_able = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_ENABLED',0);
@@ -628,7 +607,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 			my $d_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_CURR',0);
 			my $d_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Contention_MP_MAX',0);
 			
-			if ( $module{'Contention'}{'Called'} == 5 ) {
+			if ( $action =~ /^ATTACK (.+)/i ) {
 				my $a_aroll	= int(rand($a_level * $a_patk +10));
 				my $a_droll	= int(rand($a_level * $a_pdef +10));
 				
@@ -681,13 +660,13 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 				$module{'User Settings'}{'Data'}->set_entry_setting("$defender",'Contention_HP_CURR',$d_hp_curr);
 			}
 			
-			if ( $module{'Contention'}{'Called'} == 6 ) {
+			if ( $action =~ /^CAST (.+)/i ) {
 				if ( $a_matk > 0 ) { 
 					## Get collection of known spells.
 					my $grimoire = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Contention_GRIMOIRE',0);
 					
 					## Determine spell being cast, and target.
-					my ( $spell, $target ) = split / /, $module{'Contention'}{'Arguments'}, 2;
+					my ( $spell, $target ) = split / /,$1, 2;
 					
 					my $target_hp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_HP_CURR',0);
 					my $target_mp_curr = $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_MP_CURR',0);
@@ -723,8 +702,8 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 		}
 	}
 	
-	if ( $module{'Contention'}{'Called'} == 7 ) {
-		my $target = $module{'Contention'}{'Arguments'};
+	if ( $action =~ /CONSIDER (.+)/i ) {
+		my $target = $1;
 		
 		if ( $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_LEVEL',0) >= 1 ) {
 			my $enabled	= $module{'User Settings'}{'Data'}->get_entry_setting("$target",'Contention_ENABLED',0);
@@ -756,9 +735,9 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 		}
 	}
 	
-	if ( $module{'Contention'}{'Called'} >= 1000 ) {
-		if ( $module{'Contention'}{'Called'} == 1001 ) {
-			my $restore_target = $module{'Contention'}{'Arguments'};
+	if ( $called_by eq 'GM' ) {
+		if ( $action =~ /^RESTORE (.+)/i ) {
+			my $restore_target = $1;
 			my $restore_hp_amount = $module{'User Settings'}{'Data'}->get_entry_setting("$restore_target",'Contention_HP_MAX',0);
 			my $restore_mp_amount = $module{'User Settings'}{'Data'}->get_entry_setting("$restore_target",'Contention_MP_MAX',0);
 			if ( $restore_hp_amount ne 0 ) {
@@ -767,7 +746,7 @@ if ( ( $module{'Active'}{'Contention'} == 1 ) && ( $module{'Contention'}{'Called
 				$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] $restore_target has been restored to\cC9 full HP/MP\x0F!" );
 			}
 		}
-		if ( $module{'Contention'}{'Called'} == 1002 ) {
+		if ( $action =~ /^NEW ROUND$/i ) {
 			$module{'Contention'}{'Last Action'} = '';
 			$kernel->post( bot => privmsg => $module{'Contention'}{'Channel'}, " [G] A new round begins, all may act again. " );
 		}
@@ -868,7 +847,7 @@ if ( ( $module{'Active'}{'Profile'} == 1 ) && ( $module{'Profile'}{'Called'} > 0
 		}
 		$module{'Profile'}{'Save'} = 0;
 	}
-	
+_CONTENTION_CLEANUP:	
 	## Cleanup
 	$module{'Profile'}{'Arguments'}	= '';
 	$module{'Profile'}{'Called'}	= 0;
@@ -876,32 +855,28 @@ if ( ( $module{'Active'}{'Profile'} == 1 ) && ( $module{'Profile'}{'Called'} > 0
 
 ##################################
 ## Help Module by Chris Olstrom ##
-if ( ( $module{'Active'}{'Help'} == 1 ) && ( $module{'Help'}{'Called'} > 0 ) ) {
-	if ( $module{'Help'}{'Called'} == 1 ) {
-
-		if ( $module{'Help'}{'Arguments'} =~ /^PROFILE$/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0)" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] The help entry for profiles has become too large to display here. To view the complete help file for it, browse to\cC12 http://colstrom.whatthefork.org/software/perl/enbot/modules/readme-profile.txt\x0F " );
-		}
-		
-		if ( $module{'Help'}{'Arguments'} =~ /^CONTENTION$/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, "[?] CONTENTION Commands (Level 0)" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] The help entry for\cC5 Contention\x0F has become too large to display here. To view the complete help file for it, browse to\cC12 http://colstrom.whatthefork.org/software/perl/enbot/modules/readme-contention.txt\x0F " );
-		}
-		
-		if ( $module{'Help'}{'Arguments'} =~ /^CONTROL$/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $module{'User Settings'}{'File'}" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $module{'User Settings'}{'File'}" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
-			$kernel->post( bot => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
-		}
-		
-		if ( $module{'Help'}{'Arguments'} = /^COMMANDS$/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
-			$kernel->post( bot => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
-			$kernel->post( bot => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
-		}
+if ( ( $module{'Active'}{'Help'} == 1 ) && ( $module{'Help'}{'Arguments'} ne '' ) ) {
+	if ( $module{'Help'}{'Arguments'} =~ /^PROFILE$/i ) {
+		$kernel->post( bot => privmsg => $echoLocation, "[?] PROFILE Commands (Level 0)" );
+		$kernel->post( bot => privmsg => $echoLocation, "[?] This help document can be found at\cC12 http://colstrom.whatthefork.org/software/perl/enbot/documentation/readme-profile.txt\x0F " );
+	}
+	
+	if ( $module{'Help'}{'Arguments'} =~ /^CONTENTION$/i ) {
+		$kernel->post( bot => privmsg => $echoLocation, "[?] CONTENTION Commands (Level 0)" );
+		$kernel->post( bot => privmsg => $echoLocation, "[?] This help document can be found at\cC12 http://colstrom.whatthefork.org/software/perl/enbot/documentation/readme-contention.txt\x0F " ); 		}
+	
+	if ( $module{'Help'}{'Arguments'} =~ /^CONTROL$/i ) {
+		$kernel->post( bot => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
+		$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $module{'User Settings'}{'File'}" );
+		$kernel->post( bot => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $module{'User Settings'}{'File'}" );
+		$kernel->post( bot => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
+		$kernel->post( bot => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
+	}
+	
+	if ( $module{'Help'}{'Arguments'} = /^COMMANDS$/i ) {
+		$kernel->post( bot => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
+		$kernel->post( bot => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
+		$kernel->post( bot => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
 	}
 }
 
