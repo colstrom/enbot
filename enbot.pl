@@ -116,6 +116,12 @@ my %module = ();
 		$module{'Profile'}{'Called'}		= 0;
 		$module{'Profile'}{'Read'}		= '';
 		$module{'Profile'}{'Write'}		= '';
+
+	$module{'Active'}{'Combat'} = 1;
+		$module{'Combat'}{'Called'}		= 0;
+		$module{'Combat'}{'Target'}		= '';
+		$module{'Combat'}{'Channel'}		= '#enGames';
+		$module{'Combat'}{'Last'}		= '';
 	
 ################################
 # Create and Configure the Bot #
@@ -430,6 +436,24 @@ sub on_public {
 			}
 			
 		}
+		if ( ( $module{'Active'}{'Combat'} eq 1 ) && ( $command =~ /^Combat (.+)/i ) ) {
+			if ( $1 =~ /^install$/i ) {
+				$module{'Combat'}{'Install'} = "$nick";
+				$module{'Combat'}{'Called'} = 1;
+				goto _DONE;
+			}
+		
+			if ( $1 =~ /^attack (.+)/i ) {
+				if ( $module{'Combat'}{'Last'} ne $nick ) {
+					$module{'Combat'}{'Last'} = $nick;
+					$module{'Combat'}{'Attacker'} = $nick;
+					$module{'Combat'}{'Target'} = $1;
+					$module{'Combat'}{'Called'} = 2;
+				} else {
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] You were the last person to attack, give someone else a turn." ); 				}
+				goto _DONE;
+			}
+		}
 	}
 	
 	
@@ -458,6 +482,14 @@ sub on_public {
 				$kernel->post( bot => privmsg => $echoLocation, "[?] VIEW <user>: Reads the profile of <user>" );
 				goto _DONE;
 			}
+
+			## Topic: Game - Combat
+			if ( $1 =~ /^COMBAT$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, "[?] COMBAT Commands (Level 0): INSTALL, ATTACK " );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] INSTALL: Enables support for Combat, in your account. " );
+				$kernel->post( bot => privmsg => $echoLocation, "[?] ATTACK <user>: Attacks <user> with a physical attack. " );
+				goto _DONE;
+			}
 			
 			## Topic: Control
 			if ( $1 =~ /^CONTROL$/i ) {
@@ -478,13 +510,44 @@ sub on_public {
 		}
 		
 		## Displays the access level of the nick calling it.
-		if ( $msg =~ /^[!\.]INFO$/i ) {
-			my $commandList;
-			for (my $iCounter = 0; (($iCounter <= $control) && ($iCounter <= (@commands - 1))); $iCounter++) {
-				$commandList .= $commands[$iCounter];
+		if ( ( $msg =~ /^[!\.]INFO$/i ) || ( $msg =~ /^[!\.]INFO (.+)/i ) ) {
+			if ( $msg =~ /^[!\.]INFO$/i ) {
+				$kernel->post( bot => privmsg => $echoLocation, "[?] $nick (Rank $control)" );
 			}
-			$kernel->post( bot => privmsg => $echoLocation, "[?] $nick (Rank $control)" );
-			if ( $control >= 0 ) { $kernel->post( bot => privmsg => $echoLocation, "[?] Allowed Commands: $commandList" ); }
+
+			if ( ( $1 =~ /--privs/i ) || ( $1 =~ /-p/i ) ) {
+				$kernel->post( bot => privmsg => $echoLocation, "[?] $nick (Rank $control)" );
+				my $commandList;
+				for (my $iCounter = 0; (($iCounter <= $control) && ($iCounter <= (@commands - 1))); $iCounter++) {
+					$commandList .= $commands[$iCounter];
+				}
+				if ( $control >= 0 ) { $kernel->post( bot => privmsg => $echoLocation, "[?] Allowed Commands: $commandList" ); }
+			}
+
+			if ( ( $1 =~ /--games/i ) || ( $1 =~ /-g/i ) ) {
+				if ( $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_Installed',0) eq 1 ) {
+					my $combat_installed = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_Installed',0);
+					my $combat_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_LEVEL',0);
+					my $combat_exp		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_EXP',0);
+					my $combat_patk		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_PATK',0);
+					my $combat_pdef		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_PDEF',0);
+					my $combat_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_HP_CURR',0);
+					my $combat_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_HP_MAX',0);
+					my $combat_matk		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_MATK',0);
+					my $combat_mdef		= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_MDEF',0);
+					my $combat_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_MP_CURR',0);
+					my $combat_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_MP_MAX',0);
+
+					$kernel->post( bot => privmsg => $echoLocation, "[?] $nick " );
+					$kernel->post( bot => privmsg => $echoLocation, "[?] +------------------------+ " );
+					$kernel->post( bot => privmsg => $echoLocation, "[?] | Level (Experience): $combat_level ($combat_exp) " );
+					$kernel->post( bot => privmsg => $echoLocation, "[?] | HP(Max): $combat_hp_curr($combat_hp_max) | Physical ATK/DEF: $combat_patk / $combat_pdef " );
+					if ( $combat_matk > 0 ) { $kernel->post( bot => privmsg => $echoLocation, "[?] | MP(Max): $combat_mp_curr($combat_mp_max) | Magical ATK/DEF: $combat_matk / $combat_mdef " );
+					} else { $kernel->post( bot => privmsg => $echoLocation, "[?] | Does not know magic." ); }
+					$kernel->post( bot => privmsg => $echoLocation, "[?] +------------------------+ " );
+				}
+			}				
+				
 			goto _DONE;
 		}
 	
@@ -505,6 +568,126 @@ _DONE:
 ######################
 # Module Code Blocks #
 ######################
+
+####################################
+## Combat Module by Chris Olstrom ##
+if ( ( $module{'Active'}{'Combat'} eq 1 ) && ( $module{'Combat'}{'Called'} > 0 ) ) {
+	
+	## Installs Combat support in the profile for current user.
+	if ( $module{'Combat'}{'Called'} eq 1 ) {
+		my $is_installed = $module{'User Settings'}{'Data'}->get_entry_setting("$nick",'Combat_Installed',0);
+		if ( $is_installed eq 0 ) {
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_Installed',1);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_LEVEL',1);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_EXP',0);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_PATK',1);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_PDEF',1);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_MATK',0);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_MDEF',0);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_HP_CURR',50);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_HP_MAX',50);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_MP_CURR',0);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$nick",'Combat_MP_MAX',0);
+			$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [M] 'Combat' support added to your account. " );
+		} else {
+			$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [!!] FLAGRANT ERROR MESSAGE." );
+			$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [!M] 'Combat' already installed. " );
+		}
+	}
+	
+	if ( $module{'Combat'}{'Called'} eq 2 ) {
+		my $attacker = $nick;
+		my $defender = $module{'Combat'}{'Target'};
+		
+		my $is_ready = 0;
+		my $is_able = $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_Installed',0);
+		my $is_willing = $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_Installed',0);
+		
+		if ( $is_able eq 0 ) {
+			$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [!G] Your account does not have 'Combat' installed. To fix this, join $module{'Combat'}{'Channel'}, and type !combat install " );
+		} else {
+			if ( $is_willing eq 0 ) {
+				$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [!G] $defender does not have 'Combat' installed. " );
+			} else {
+				$is_ready = 1;
+			}
+		}
+		
+		if ( $is_ready eq 1 ) {
+			my $a_name	= "$attacker";
+			my $a_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_LEVEL',1);
+			my $a_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_EXP',0);
+			my $a_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_PATK',1);
+			my $a_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_PDEF',1);
+			my $a_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_HP_CURR',50);
+			my $a_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_HP_MAX',50);
+			my $a_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_MP_CURR',0);
+			my $a_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$attacker",'Combat_MP_MAX',0);
+			my $a_aroll	= int(rand($a_level * $a_patk +10));
+			my $a_droll	= int(rand($a_level * $a_pdef +10));
+			
+			my $d_name	= "$defender";
+			my $d_level	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_LEVEL',1);
+			my $d_exp	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_EXP',0);
+			my $d_patk	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_PATK',1);
+			my $d_pdef	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_PDEF',1);
+			my $d_hp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_HP_CURR',50);
+			my $d_hp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_HP_MAX',50);
+			my $d_mp_curr	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_MP_CURR',0);
+			my $d_mp_max	= $module{'User Settings'}{'Data'}->get_entry_setting("$defender",'Combat_MP_MAX',0);
+			my $d_aroll	= int(rand($d_level * $d_patk +10));
+			my $d_droll	= int(rand($d_level * $d_pdef +10));
+			
+			if ( $a_aroll > $d_droll ) {
+				my $damage = $a_aroll - $d_droll; $d_hp_curr = $d_hp_curr - $damage;
+				$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, "[G] $a_aroll/$a_droll vs $d_aroll/$d_droll | $a_name strikes $d_name, dealing $damage points of damage. $d_name has\cC3 [$d_hp_curr/$d_hp_max]\x0F remaining." );
+				if ( $d_hp_curr le 0 ) { 
+					my $rewardExp = int( ( $a_level / $d_level ) * 10 );
+					if ( $rewardExp < 1 ) { $rewardExp = 1; }
+					my $totalExp = $a_exp + $rewardExp;
+					$module{'User Settings'}{'Data'}->set_entry_setting("$a_name",'Combat_EXP',$totalExp);
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_name defeats $d_name in combat, gaining\cC12 $rewardExp Experience Points\x0F. " );
+					$a_hp_curr = $a_hp_max;
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_name has been restored to full HP!" );
+					$d_hp_curr = $d_hp_max;
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $d_name has been restored to full HP!" );
+				}
+			} elsif ( $a_aroll < $d_droll ) {
+				$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_aroll/$a_droll vs $d_aroll/$d_droll | $d_name evades $a_name\'s strike. " );
+			} else {
+				if ( $d_aroll > $a_droll ) {
+					my $damage = $d_aroll - $a_droll; $a_hp_curr = $a_hp_curr - $damage;
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_aroll/$a_droll vs $d_aroll/$d_droll | $d_name dodges, and counterattacks $a_name, dealing $damage points of damage. $a_name has\cC3 [$a_hp_curr/$a_hp_max]\x0F HP remaining." );
+					if ( $a_hp_curr le 0 ) { 
+						my $rewardExp = int( ( $d_level / $a_level ) * 10 );
+						if ( $rewardExp < 1 ) { $rewardExp = 1; }
+						my $totalExp = $d_exp + $rewardExp;
+						$module{'User Settings'}{'Data'}->set_entry_setting("$d_name",'Combat_EXP',$totalExp);
+						$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $d_name defeats $a_name in combat, gaining\cC12 $rewardExp Experience Points\x0F. " );
+						$a_hp_curr = $a_hp_max;
+						$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_name has been restored to full HP!" );
+						$d_hp_curr = $d_hp_max;
+						$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $d_name has been restored to full HP!" );
+					}
+				} elsif ( $d_aroll < $a_droll ) {
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_aroll/$a_droll vs $d_aroll/$d_droll | $d_name evades, and attempts to counter $a_name, but fails. " );
+				} else {
+					$kernel->post( bot => privmsg => $module{'Combat'}{'Channel'}, " [G] $a_aroll/$a_droll vs $d_aroll/$d_droll | $a_name and $d_name lose track of each other for one round. No damage dealt, none taken. " );
+				}
+			}
+			$module{'User Settings'}{'Data'}->set_entry_setting("$a_name",'Combat_HP_CURR',$a_hp_curr);
+			$module{'User Settings'}{'Data'}->set_entry_setting("$d_name",'Combat_HP_CURR',$d_hp_curr);
+		}
+	}
+	
+	## Make sure it saves.
+	$module{'Profile'}{'Called'} = 99; # Call the profile module, but don't trigger an event.
+	$module{'Profile'}{'Save'} = 1;
+
+	## Cleanup
+	$module{'Combat'}{'Called'} = 0;
+	$module{'Combat'}{'Target'} = '';
+}
 
 #####################################
 ## Profile Module by Chris Olstrom ##
@@ -532,7 +715,7 @@ if ( ( $module{'Active'}{'Profile'} eq 1 ) && ( $module{'Profile'}{'Called'} > 0
 			print users "$module{'User Settings'}{'Data'}";
 		close (users);
 		if ( $msg =~ /^[!|\.]/i ) {
-			$kernel->post( bot => privmsg => $echoLocation, " [*] User settings saved to $module{'User Settings'}{'File'}. " );
+			$kernel->post( bot => privmsg => '#enBot', " [*] User settings saved to $module{'User Settings'}{'File'}. " );
 		}
 		$module{'Profile'}{'Save'} = 0;
 	}
