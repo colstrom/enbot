@@ -20,33 +20,51 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #
+#######################################################
+# Based on skeleton code found at...
+# http://poe.perl.org/?POE_Cookbook/IRC_Bots
+#######################################################
 
 use strict;
 
 use POE;
 use POE::Component::IRC;
+use Config::Abstract::Ini;
 
-my $tmpBuffer;
+#############################
+# Configure Global Settings #
+#############################
+
+my $CONFIG_NICK		= 'enBot'; # . $$ % 1000;
+my $CONFIG_USERNAME	= 'enBot';
+my $CONFIG_IRCNAME	= 'Perl-based IRC Bot';
+my $CONFIG_SERVER	= 'bots.esper.net';
+my $CONFIG_PORT		= '5555';
+
+my @CONFIG_CHANNEL;
+	$CONFIG_CHANNEL[0] = '#en';
+	$CONFIG_CHANNEL[1] = '#enBot';
+	$CONFIG_CHANNEL[2] = '#enGames';
 
 #############################
 # Define Available Commands #
 #############################
 
 my @commands;
-$commands[0] = "(HELP) (INFO) (READ) (SEARCH) (SCRIBBLE) (PROFILE) ";
-$commands[1] = "(V) (ROT13) ";
-$commands[2] = "(H) (K) (SHOW ACL) ";
-$commands[3] = "(O) (B) ";
-$commands[4] = "(CONTROL) ";
-$commands[5] = "(CONFIG) ";
-$commands[6] = "(M) (GETTHEFUCKOUTOFHERE) ";
+	$commands[0] = '(HELP) (INFO) (READ) (SEARCH) (SCRIBBLE) (PROFILE) ';
+	$commands[1] = '(V) (ROT13) ';
+	$commands[2] = '(H) (K) (SHOW ACL) ';
+	$commands[3] = '(O) (B) ';
+	$commands[4] = '(CONTROL) ';
+	$commands[5] = '(CONFIG) ';
+	$commands[6] = '(M) (GETTHEFUCKOUTOFHERE) ';
 
 ###############################
 # Create Access Control Lists #
 ###############################
 
-my $ACL_AUTHOR = "SiliconViper";
-my $ACL_OWNER = "SiliconViper";
+my $ACL_AUTHOR = 'SiliconViper';
+my $ACL_OWNER = 'SiliconViper';
 my $ACL_FOUNDER;
 my $ACL_SOP;
 my $ACL_AOP;
@@ -59,26 +77,23 @@ my $ACL_BANNED;
 # Whiteboard Configuration #
 ############################
 
-my $CONFIG_BOARD_FILE = "db.whiteboard";
-my $CONFIG_BOARD_LIMIT = "100";
+my $CONFIG_BOARD_FILE = 'db.whiteboard';
+my $CONFIG_BOARD_LIMIT = 100;
 
 my @messageBody;
 my $messageOffset = 0;
 my $restrictLooping = 0;
 
-################################
-# Profile System Configuration #
-################################
-
-my $CONFIG_PROFILE_FILE = "db.profile";
-
-my @profile;
-
 ###############################
-# Create and Confgure the Bot #
+# User Settings Configuration #
 ###############################
 
-sub CHANNEL () { "#en" }
+my $CONFIG_USER_FILE = 'settings-user.ini';
+my $USER_SETTINGS;
+
+################################
+# Create and Configure the Bot #
+################################
 
 # Create the component that will represent an IRC network.
 POE::Component::IRC->new("magnet");
@@ -100,20 +115,23 @@ sub bot_start {
 	
 	$kernel->post( magnet => register => "all" );
 	
-	my $nick = 'enBot'; # . $$ % 1000;
 	$kernel->post( magnet => connect => {
-		Nick => $nick,
-		Username => 'enBot',
-		Ircname  => 'Perl-based IRC bot',
-		Server   => 'irc.esper.net',
-		Port     => '5555',
+		Nick     => $CONFIG_NICK,
+		Username => $CONFIG_USERNAME,
+		Ircname  => $CONFIG_IRCNAME,
+		Server   => $CONFIG_SERVER,
+		Port     => $CONFIG_PORT,
 		}
 	);
 }
 
 # The bot has successfully connected to a server.  Join a channel.
 sub on_connect {
-    $_[KERNEL]->post( magnet => join => CHANNEL );
+	open (passwd, 'config.passwd') || die ( "Could not open file. $!"); my $passwd = <passwd>; close (passwd);
+	$_[KERNEL]->post( magnet => privmsg => 'NickServ', "IDENTIFY $passwd" );
+	for (my $iCounter = 0; $iCounter < @CONFIG_CHANNEL; $iCounter++) {
+		$_[KERNEL]->post( magnet => join => $CONFIG_CHANNEL[$iCounter] );
+	}
 }
 
 
@@ -137,9 +155,7 @@ sub on_public {
 	#######################
 	## Get time from local settings, format
 
-	my $tmp = scalar localtime;
-	my @tmp = split(/ /,$tmp); $tmp = $tmp[3]; @tmp = split(/:/,$tmp);
-	my $ts = $tmp[0] . ":" . $tmp[1];
+	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);
 
 	#######################
 	# Local Configuration #
@@ -152,8 +168,9 @@ sub on_public {
 	# Logging #
 	###########
 	## Log to screen, for maximum flexibility.
-	
-	print "[$ts] <$nick> $msg\n"; # Log to screen
+	if ( $channel eq '#en' ) {
+		print "[$timestamp] <$nick> $msg\n"; # Log to screen
+	}
 	
 	################
 	# Access Check #
@@ -190,7 +207,7 @@ sub on_public {
 	###################
 	## Should replies be public, or private?
 	
-	if ( $msg =~ /^!/ ) { $echoLocation = CHANNEL; }
+	if ( ( $msg =~ /^!/ ) && ( $control >= 1 ) ) { $echoLocation = $channel; }
 	if ( $msg =~ /^\./ ) { $echoLocation = $nick; }
 	
 	
@@ -206,7 +223,7 @@ sub on_public {
 		}
 		
 		if ( $msg =~ /^[!|\.]GetTheFuckOutOfHere/i ) {
-			$kernel->post( magnet => privmsg => CHANNEL, " Ack! I am slain ... (--> $nick <--)" );
+			$kernel->post( magnet => privmsg => $echoLocation, " Ack! I am slain ... (--> $nick <--)" );
 			goto _TERM;
 		}
 		
@@ -273,11 +290,17 @@ sub on_public {
 				goto _DONE;
 			}
 			
-			if ( $1 =~ /^PROFILE_LOAD$/i ) {
-				open (profile, "$CONFIG_PROFILE_FILE") || die ("Could not open file. $!");
-					@profile = <profile>;
-				close (profile);
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Profile loaded from $CONFIG_PROFILE_FILE. " );
+			if ( $1 =~ /^USERS_LOAD$/i ) {
+				$USER_SETTINGS = new Config::Abstract::Ini($CONFIG_USER_FILE);
+				$kernel->post( magnet => privmsg => $echoLocation, " [*] User settings loaded from $CONFIG_USER_FILE. " );
+				goto _DONE;
+			}
+			
+			if ( $1 =~ /^USERS_SAVE$/i ) {
+				open (users, ">$CONFIG_USER_FILE") || die ("Could not open file. $!");
+					print users "$USER_SETTINGS";
+				close (users);
+				$kernel->post( magnet => privmsg => $echoLocation, " [*] User settings saved to $CONFIG_USER_FILE. " );
 				goto _DONE;
 			}
 			
@@ -289,7 +312,7 @@ sub on_public {
 			
 			if ( $1 =~ /^STATS_REGEN$/i ) {
 				system(". ./script.stats > /dev/null");
-				$kernel->post( magnet => privmsg => $echoLocation, " [*] Stats Regenerated, check http://142.33.13.20/~siliconviper/en-ircstats/" );
+				$kernel->post( magnet => privmsg => $CONFIG_CHANNEL[0], " [*] Stats Regenerated, check http://siliconviper.whatthefork.org/enbot/ircstats/" );
 				goto _DONE;
 			}
 		}
@@ -396,24 +419,20 @@ sub on_public {
 			goto _DONE;
 		}
 		
-		if ( $msg =~ /^[!|\.]profile SET (.+)/i ) {
-			$profile[$uid] = $1;
-			$kernel->post( magnet => privmsg => $echoLocation, " [*] Profile for $nick set to: $profile[$uid]" );
-			goto _DONE;
+		if ( $msg =~ /^[!|\.]PROFILE (.+)/i ) {
+			if ( $1 =~ /^SET (.+)/i ) {
+				$USER_SETTINGS->set_entry_setting("$nick",'PROFILE',"$1");
+				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$nick",'PROFILE',"Profile Not Set");
+				$kernel->post( magnet => privmsg => $echoLocation, " [*] Profile for $nick set to: $tmpBuffer" );
+				goto _DONE;
+			}
+			if ( $1 =~ /^VIEW (.+)/i ) {
+				my $tmpBuffer = $USER_SETTINGS->get_entry_setting("$1","PROFILE","Profile Not Set");
+				$kernel->post( magnet => privmsg => $echoLocation, " [*] Profile for $1: $tmpBuffer" );
+				goto _DONE;
+			}
 		}
 		
-		if ( $msg =~ /^[!|\.]profile VIEW (.+)/i ) {
-			my $view;
-		        if (1) {
-		                my @tmpBuffer = (split //, $1);
-		                for (my $iCounter = 0; $iCounter < (@tmpBuffer - 1); $iCounter++) {
-		                        $view += ord @tmpBuffer[$iCounter];
-		                }
-		        }
-			
-			$kernel->post( magnet => privmsg => $echoLocation, " [-] Profile for $1: $profile[$view]" );
-			goto _DONE;
-		}
 	}
 	
 	
@@ -428,6 +447,7 @@ sub on_public {
 			$kernel->post( magnet => privmsg => $echoLocation, " [?] Topics include WHITEBOARD, PROFILE, CONTROL, and CONFIG." );
 			$kernel->post( magnet => privmsg => $echoLocation, " [?] Commands are issued either in-channel, or via private message (/msg)." );
 			$kernel->post( magnet => privmsg => $echoLocation, " [?] All commands must be prefixed with a response identifier, either ! (public) or . (private). " );
+			$kernel->post( magnet => privmsg => $echoLocation, " [?] For a list of commands you can use, type !INFO or .INFO " );
 			goto _DONE;
 		}
 		
@@ -451,7 +471,8 @@ sub on_public {
 				$kernel->post( magnet => privmsg => $echoLocation, "[?] CONTROL Commands (Level 4): BOARD_SAVE, BOARD_LOAD, ACL_RELOAD, PROFILE_LOAD, STATS_REGEN" );
 				$kernel->post( magnet => privmsg => $echoLocation, "[?] BOARD_LOAD: Loads the contents of the whiteboard from $CONFIG_BOARD_FILE" );
 				$kernel->post( magnet => privmsg => $echoLocation, "[?] BOARD_SAVE: Saves the contents of the whiteboard to $CONFIG_BOARD_FILE" );
-				$kernel->post( magnet => privmsg => $echoLocation, "[?] PROFILE_LOAD: Loads user profiles from $CONFIG_PROFILE_FILE" );
+				$kernel->post( magnet => privmsg => $echoLocation, "[?] USERS_LOAD: Loads settings for all users from $CONFIG_USER_FILE" );
+				$kernel->post( magnet => privmsg => $echoLocation, "[?] USERS_SAVE: Saves settings for all users to $CONFIG_USER_FILE" );
 				$kernel->post( magnet => privmsg => $echoLocation, "[?] ACL_RELOAD: Reloads the Access Control Lists" );
 				$kernel->post( magnet => privmsg => $echoLocation, "[?] STATS_REGEN: Regenerates the Statistics Page" );
 				goto _DONE;
