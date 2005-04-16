@@ -1,5 +1,5 @@
 Name: enBot
-Version: 1.0.1.0 (2005-03-13)
+Version: 1.0.2.0 (2005-04-15)
 Description: IRC bot written in Perl.
 Homepage: http://colstrom.whatthefork.org/software/perl/enbot/
 
@@ -17,3 +17,7 @@ Improved efficiency of Echo() slightly. Removed an unneeded argument.
 v2005-03-13 (v1.0.1.0)
 BUGFIX - Killed the stupid bug that rendered the LogMessage() subroutine 
 useless. >_< The regex was inverted, and I didn't notice.
+
+v2005-04-15 (v1.0.2.0)
+Modified the logging system again. Now it logs to db/log/channelname.log, 
+and creates a seperate logfile for each channel.

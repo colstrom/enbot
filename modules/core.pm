@@ -24,37 +24,26 @@ our %triggerIndex;
 sub HandleMessage {
 	my ($kernel,$moduleSettings,$kernel,$who,$where,$message) = @_;				# Assign data to named scalars.
 	
-																				# Thanks to xmath, from #perlhelp on EFnet, for this more efficient splitting.
-	my ($nick, $hostmask) = split /!/, $who, 2;									# Seperate nick and hostmask.
+												# Thanks to xmath, from #perlhelp on EFnet, for this more efficient splitting.
+	my ($nick, $hostmask) = split /!/, $who, 2;						# Seperate nick and hostmask.
 	
-	my $channel = $where->[0];													# Determine where the message is coming from.
-
-																				# Thanks to cardioid, from #perlhelp on EFnet, for this more efficient timestamp generation.
-	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);						# Get time from local settings, and format it to be more readable.
-
-	LogMessage($kernel,$moduleSettings,$channel,'console',"[$timestamp] <$nick> $message");	# Log the message, we mimic mIRC's format, so we can use utilities that act on mIRC logs with our logs! Compatibility++
+	my $channel = $where->[0];								# Determine where the message is coming from.
 	
-	if ( $message =~ /^[!|\.](.+)/i ) {											# Is it a trigger?
-		my $prefix = substr($message,1);										# Which control character?
-		my ($trigger,$arguments) = split / /,$1,2;								# Seperate trigger and arguments.
+												# Thanks to cardioid, from #perlhelp on EFnet, for this more efficient timestamp generation.
+	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);					# Get time from local settings, and format it to be more readable.
+	
+	open(logfile,">db/log/$channel\.log");
+		print logfile "[$timestamp] <$nick> $message";					# Log the message, we mimic mIRC's format, so we can use utilities that act on mIRC logs with our logs! Compatibility++
+	close(logfile);
+	
+	if ( $message =~ /^[!|\.](.+)/i ) {							# Is it a trigger?
+		my $prefix = substr($message,1);						# Which control character?
+		my ($trigger,$arguments) = split / /,$1,2;					# Seperate trigger and arguments.
 		
 		if ( exists $triggerIndex{$trigger} ) {
 			$triggerIndex{$trigger}->($kernel,$moduleSettings,$channel,$nick,$arguments);
 		}
 	}
-}
-
-sub LogMessage {
-	my($kernel,$moduleSettings,$logFrom,$logTo,$message) = @_;
-	my $logChannels = $moduleSettings->get_entry_setting('Logging','Channels','');
-	
-	if ( $logChannels =~ /$logFrom/i ) {										# Are we supposed to be logging this channel?
-		if ( $logTo eq 'console' ) {											# Log to console?
-			print "$message\n";													# Log to console, for maximum flexibility. Allows total log manipulation by the user, should they so desire. I tend to run the bot with... 'run ./enbot.pl >> /home/username/log/enbot &'
-		}
-	}
-
-	return 1;
 }
 
 sub Echo {
