@@ -1,5 +1,5 @@
 Name: enBot
-Version: 1.0.2.0 (2005-04-15)
+Version: 1.0.2.2 (2005-04-15)
 Description: IRC bot written in Perl.
 Homepage: http://colstrom.whatthefork.org/software/perl/enbot/
 
@@ -24,3 +24,6 @@ and creates a seperate logfile for each channel.
 
 v2005-04-15 (v1.0.2.1)
 BUGFIX - Logfiles append, not overwrite.
+
+v2005-04-15 (v1.0.2.2)
+BUGFIX - Logs now contain newlines. >_<
