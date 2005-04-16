@@ -32,7 +32,7 @@ sub HandleMessage {
 												# Thanks to cardioid, from #perlhelp on EFnet, for this more efficient timestamp generation.
 	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);					# Get time from local settings, and format it to be more readable.
 	
-	open(logfile,">db/log/$channel\.log");
+	open(logfile,">>db/log/$channel\.log");
 		print logfile "[$timestamp] <$nick> $message";					# Log the message, we mimic mIRC's format, so we can use utilities that act on mIRC logs with our logs! Compatibility++
 	close(logfile);
 	

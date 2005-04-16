@@ -21,3 +21,6 @@ useless. >_< The regex was inverted, and I didn't notice.
 v2005-04-15 (v1.0.2.0)
 Modified the logging system again. Now it logs to db/log/channelname.log, 
 and creates a seperate logfile for each channel.
+
+v2005-04-15 (v1.0.2.1)
+BUGFIX - Logfiles append, not overwrite.
