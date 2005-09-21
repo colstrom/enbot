@@ -20,6 +20,7 @@
 #
 ################################################################################
 our %triggerIndex;
+	$triggerIndex{'listmodules'} = \&ListModules;
 
 sub HandleMessage {
 	my ($kernel,$moduleSettings,$kernel,$who,$where,$message) = @_;				# Assign data to named scalars.
@@ -49,6 +50,11 @@ sub HandleMessage {
 sub Echo {
 	my ($kernel,$location,$message) = @_;
 	$kernel->post( bot => 'privmsg' => $location, $message );
+}
+
+sub ListModules {
+	my ($kernel,$moduleSettings,$channel,$nick,$null) = @_;
+	Echo($kernel,$channel,$moduleSettings->get_entry_setting('Core','Module Index','No modules loaded. Impressive trick, since this function is in modules/core.pm'));
 }
 
 return 1;

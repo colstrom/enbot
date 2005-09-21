@@ -36,7 +36,11 @@ my $botSettings		= new Config::Abstract::Ini('config/settings.ini');
 my $moduleSettings	= new Config::Abstract::Ini('config/modules.ini');
 
 # Load Modules
-require 'modules/core.pm';
+my @moduleIndex = split(/ /,$moduleSettings->get_entry_setting('Core','Module Index',''));
+
+foreach my $module ( @moduleIndex ) {
+	require "modules/$module.pm";
+}
 
 ################################
 # Create and Configure the Bot #
