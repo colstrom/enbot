@@ -1,9 +1,21 @@
-Name: enBot
-Version: 1.0.3.0 (2005-09-20)
-Description: IRC bot written in Perl.
-Homepage: http://colstrom.whatthefork.org/software/perl/enbot/
+                                                                      Synopsis
+------------------------------------------------------------------------------
+
+Name
+	enBot
+Version
+	1.1.1.0 (2005-12-12)
+
+Description
+	IRC bot written in Perl.
+WWW
+	http://colstrom.whatthefork.org/software/perl/enbot/
+
+                                                                     Changelog
+------------------------------------------------------------------------------
 
 2005-03-02 (v1.0.0.0)
+
 v1.0 is FINALLY released, with all the features I wanted. Flexible 
 design, simple layout, and easy-to-write modules. With a bit of luck, it 
 will be a long time before you see another release of the enBot core. 
@@ -11,24 +23,36 @@ All the work should be done in the modules, unless there is a bug in the
 core. Thanks to everyone who helped test this, and who enjoyed the 
 previous versions enough for me to keep working on this.
 
+
 v2005-03-03 (v1.0.0.1)
+
 Improved efficiency of Echo() slightly. Removed an unneeded argument.
 
+
 v2005-03-13 (v1.0.1.0)
+
 BUGFIX - Killed the stupid bug that rendered the LogMessage() subroutine 
 useless. >_< The regex was inverted, and I didn't notice.
 
+
 v2005-04-15 (v1.0.2.0)
+
 Modified the logging system again. Now it logs to db/log/channelname.log, 
 and creates a seperate logfile for each channel.
 
+
 v2005-04-15 (v1.0.2.1)
+
 BUGFIX - Logfiles append, not overwrite.
 
+
 v2005-04-15 (v1.0.2.2)
+
 BUGFIX - Logs now contain newlines. >_<
 
+
 v2005-09-20 (v1.0.3.0)
+
 It's been awhile since I worked on enBot, mostly because there wasn't 
 anything noticeably wrong with it. One thing that's always been a minor 
 annoyance from the start of Series-1 though, is having to edit enbot.pl 
@@ -36,3 +60,29 @@ every time you add a new module. That file should never have to be touched.
 So I tweaked it a little, and decided to make it read from the settings file.
 So config/modules.ini now has a [Core] section, with a 'Module Index' entry.
 An additional trigger has been added, !listmodules.
+
+
+v2005-12-12 (v1.1.0.0)
+
+Just under three months since the last core change, and this one is just a
+feature extension, rather than a bugfix. The core seems very solid thus far.
+The version number has been bumped, because this change (while small), is 
+significant enough that if your module depends on it, it will require this 
+version or newer.
+
+This alteration allows non-command messages to be handled by modules. All you 
+really have to do, is overwrite the 'Second Stage Handler' under [Core], in
+config/modules.ini.
+
+
+
+v2005-12-12 (v1.1.1.0)
+This fix adds a function in modules/core.pm, to save an INI file. Use of this 
+function, rather than your own, will cause dependance on this version or 
+newer. I considered this worth adding, since I keep recycling this function in
+other modules ANYWAYS.
+
+                                                                    Known Bugs
+------------------------------------------------------------------------------
+
+None

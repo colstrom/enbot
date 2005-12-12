@@ -22,29 +22,46 @@
 our %triggerIndex;
 	$triggerIndex{'listmodules'} = \&ListModules;
 
+
 sub HandleMessage {
-	my ($kernel,$moduleSettings,$kernel,$who,$where,$message) = @_;				# Assign data to named scalars.
+	my ($kernel,$moduleSettings,$kernel,$who,$where,$message) = @_;	# Assign data to named scalars.
 	
-												# Thanks to xmath, from #perlhelp on EFnet, for this more efficient splitting.
+																	# Thanks to xmath, from #perlhelp on EFnet, for this more efficient splitting.
 	my ($nick, $hostmask) = split /!/, $who, 2;						# Seperate nick and hostmask.
 	
-	my $channel = $where->[0];								# Determine where the message is coming from.
+	my $channel = $where->[0];										# Determine where the message is coming from.
 	
-												# Thanks to cardioid, from #perlhelp on EFnet, for this more efficient timestamp generation.
-	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);					# Get time from local settings, and format it to be more readable.
+																	# Thanks to cardioid, from #perlhelp on EFnet, for this more efficient timestamp generation.
+	my $timestamp = sprintf("%02d:%02d", (localtime)[2,1]);			# Get time from local settings, and format it to be more readable.
 	
 	open(logfile,">>db/log/$channel\.log");
-		print logfile "[$timestamp] <$nick> $message\n";				# Log the message, we mimic mIRC's format, so we can use utilities that act on mIRC logs with our logs! Compatibility++
+		print logfile "[$timestamp] <$nick> $message\n";			# Log the message, we mimic mIRC's format, so we can use utilities that act on mIRC logs with our logs! Compatibility++
 	close(logfile);
 	
 	if ( $message =~ /^[!|\.](.+)/i ) {							# Is it a trigger?
 		my $prefix = substr($message,1);						# Which control character?
-		my ($trigger,$arguments) = split / /,$1,2;					# Seperate trigger and arguments.
+		my ($trigger,$arguments) = split / /,$1,2;				# Seperate trigger and arguments.
 		
 		if ( exists $triggerIndex{$trigger} ) {
 			$triggerIndex{$trigger}->($kernel,$moduleSettings,$channel,$nick,$arguments);
 		}
+	} else {
+		my $SecondStageHandler = $moduleSettings->get_entry_setting('Core','Second Stage Handler','SecondStageHandler');
+		$SecondStageHandler = \&$SecondStageHandler;
+		$SecondStageHandler->($kernel,$moduleSettings,$channel,$nick,$message);
 	}
+}
+
+sub SecondStageHandler {
+	my ($kernel,$moduleSettings,$channel,$nick,$message);
+}
+
+sub Save {
+	my ($data,$file) = @_;
+
+	open (file, ">$file") || die ("Could not open file. $!");
+	print file "$data";
+	close (file);
 }
 
 sub Echo {
